@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+build/
+dist/
+
+# Env files
+.env
+.env.local
+.env*.local
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# GSD / graphify generated artifacts (regenerable caches, not source)
+graphify-out/
+.planning/graphs/
+.planning/research/.cache/
+
+# TypeScript
+*.tsbuildinfo
