@@ -96,38 +96,46 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | TBD | Pending |
-| AUTH-02 | TBD | Pending |
-| AUTH-03 | TBD | Pending |
-| AUTH-04 | TBD | Pending |
-| SUBM-01 | TBD | Pending |
-| SUBM-02 | TBD | Pending |
-| SUBM-03 | TBD | Pending |
-| SUBM-04 | TBD | Pending |
-| SUBM-05 | TBD | Pending |
-| SUBM-06 | TBD | Pending |
-| VERIFY-01 | TBD | Pending |
-| VERIFY-02 | TBD | Pending |
-| VERIFY-03 | TBD | Pending |
-| VERIFY-04 | TBD | Pending |
-| VERIFY-05 | TBD | Pending |
-| DEDUP-01 | TBD | Pending |
-| DEDUP-02 | TBD | Pending |
-| DEDUP-03 | TBD | Pending |
-| FEED-01 | TBD | Pending |
-| FEED-02 | TBD | Pending |
-| FEED-03 | TBD | Pending |
-| FEED-04 | TBD | Pending |
-| ENGAGE-01 | TBD | Pending |
-| ENGAGE-02 | TBD | Pending |
-| ENGAGE-03 | TBD | Pending |
-| ENGAGE-04 | TBD | Pending |
+| AUTH-01 | Phase 2 | Pending |
+| AUTH-02 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Pending |
+| AUTH-04 | Phase 2 | Pending |
+| SUBM-01 | Phase 1 | Pending |
+| SUBM-02 | Phase 1 | Pending |
+| SUBM-03 | Phase 1 | Pending |
+| SUBM-04 | Phase 3 | Pending |
+| SUBM-05 | Phase 4 | Pending |
+| SUBM-06 | Phase 1 | Pending |
+| VERIFY-01 | Phase 4 | Pending |
+| VERIFY-02 | Phase 4 | Pending |
+| VERIFY-03 | Phase 4 | Pending |
+| VERIFY-04 | Phase 4 | Pending |
+| VERIFY-05 | Phase 4 | Pending |
+| DEDUP-01 | Phase 3 | Pending |
+| DEDUP-02 | Phase 3 | Pending |
+| DEDUP-03 | Phase 3 | Pending |
+| FEED-01 | Phase 1 | Pending |
+| FEED-02 | Phase 5 | Pending |
+| FEED-03 | Phase 1 | Pending |
+| FEED-04 | Phase 1 | Pending |
+| ENGAGE-01 | Phase 5 | Pending |
+| ENGAGE-02 | Phase 5 | Pending |
+| ENGAGE-03 | Phase 5 | Pending |
+| ENGAGE-04 | Phase 6 | Pending |
 
 **Coverage:**
 - v1 requirements: 26 total
-- Mapped to phases: 0 (filled by roadmap creation)
-- Unmapped: 26 ⚠️ (expected until roadmap runs)
+- Mapped to phases: 26 ✓
+- Unmapped: 0 ✓
+
+**Per-phase counts:**
+- Phase 1 (Core Capture-to-Feed Skeleton): 7 — SUBM-01, SUBM-02, SUBM-03, SUBM-06, FEED-01, FEED-03, FEED-04
+- Phase 2 (Real Authentication & Write-Gating): 4 — AUTH-01, AUTH-02, AUTH-03, AUTH-04
+- Phase 3 (Location Pipeline — Geocoding & Duplicate Threading): 4 — SUBM-04, DEDUP-01, DEDUP-02, DEDUP-03
+- Phase 4 (AI Verification, Photo Privacy & Abuse Prevention): 6 — SUBM-05, VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
+- Phase 5 (Social Engagement, Ranking & Moderation): 4 — FEED-02, ENGAGE-01, ENGAGE-02, ENGAGE-03
+- Phase 6 (Compliance, Privacy & Launch Readiness): 1 — ENGAGE-04
 
 ---
 *Requirements defined: 2026-07-22*
-*Last updated: 2026-07-22 after initial definition*
+*Last updated: 2026-07-22 after roadmap creation (traceability mapped)*
