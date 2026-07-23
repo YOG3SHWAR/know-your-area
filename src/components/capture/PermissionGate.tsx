@@ -24,6 +24,8 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    let camera: PermissionStatus | undefined;
+    let location: PermissionStatus | undefined;
 
     async function check() {
       if (!navigator.permissions?.query) {
@@ -36,16 +38,19 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const [camera, location] = await Promise.all([
+        const [queriedCamera, queriedLocation] = await Promise.all([
           navigator.permissions.query({ name: "camera" }),
           navigator.permissions.query({ name: "geolocation" }),
         ]);
         if (cancelled) return;
+        camera = queriedCamera;
+        location = queriedLocation;
 
         const evaluate = () => {
-          if (camera.state === "denied") {
+          if (cancelled) return;
+          if (camera!.state === "denied") {
             setState("camera-denied");
-          } else if (location.state === "denied") {
+          } else if (location!.state === "denied") {
             setState("location-denied");
           } else {
             setState("ok");
@@ -66,6 +71,8 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
     check();
     return () => {
       cancelled = true;
+      if (camera) camera.onchange = null;
+      if (location) location.onchange = null;
     };
   }, []);
 
