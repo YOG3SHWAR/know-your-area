@@ -17,6 +17,7 @@ export async function getOrCreateDeviceId(): Promise<string> {
   store.set(COOKIE_NAME, id, {
     httpOnly: true,
     sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
     maxAge: TWO_YEARS_SECONDS,
   });
   return id;
