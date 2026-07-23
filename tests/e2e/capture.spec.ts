@@ -76,3 +76,90 @@ test("capture flow: denied location permission hard-blocks with no submission pa
   await expect(page.getByRole("button", { name: "Capture Photo" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Publish Report" })).toHaveCount(0);
 });
+
+// G-01-4: the category picker must render as a uniform grid — the previous
+// `flex flex-wrap` container sized each chip to its intrinsic label width,
+// so the longest label ("Pothole/Road damage") wrapped alone while shorter
+// labels paired up. A fixed 2-column grid gives every chip an equal-width
+// cell regardless of label length.
+test("category picker renders uniform-width chips (G-01-4)", async ({ page }) => {
+  await page.goto("/capture");
+
+  const grid = page.getByTestId("category-picker");
+  await expect(grid).toHaveCSS("display", "grid");
+
+  const buttons = grid.locator("button");
+  await expect(buttons).toHaveCount(5);
+
+  const widths: number[] = [];
+  for (const button of await buttons.all()) {
+    const box = await button.boundingBox();
+    if (!box) throw new Error("Expected category chip to have a bounding box");
+    widths.push(box.width);
+  }
+
+  const [first, ...rest] = widths;
+  for (const width of rest) {
+    expect(Math.abs(width - first)).toBeLessThanOrEqual(2);
+  }
+});
+
+// G-01-3: on a browser whose Permissions API does not proactively report
+// `denied` up front (Safari never does for "camera"; every browser reports
+// "prompt" on a first visit), PermissionGate's proactive check alone cannot
+// catch the denial — the real getUserMedia/geolocation rejection must be
+// routed back into the same hard-block. These tests simulate that
+// "prompt"-then-reject sequence rather than the proactive "denied" state
+// already covered above.
+test("capture flow: camera denial via getUserMedia rejection escalates to hard-block (G-01-3)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.permissions.query = (async () => {
+      return { state: "prompt", onchange: null } as PermissionStatus;
+    }) as typeof navigator.permissions.query;
+
+    navigator.mediaDevices.getUserMedia = (async () => {
+      throw new DOMException("denied", "NotAllowedError");
+    }) as typeof navigator.mediaDevices.getUserMedia;
+  });
+
+  await page.goto("/capture");
+
+  await expect(page.getByTestId("permission-hard-block")).toContainText("Camera access is off");
+  await expect(page.getByRole("button", { name: "Capture Photo" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish Report" })).toHaveCount(0);
+});
+
+test("capture flow: location denial via geolocation code 1 escalates to hard-block (G-01-3)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.permissions.query = (async () => {
+      return { state: "prompt", onchange: null } as PermissionStatus;
+    }) as typeof navigator.permissions.query;
+
+    navigator.geolocation.watchPosition = ((
+      _success: PositionCallback,
+      error?: PositionErrorCallback | null,
+    ) => {
+      setTimeout(() => {
+        error?.({
+          code: 1,
+          message: "denied",
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        } as GeolocationPositionError);
+      }, 0);
+      return 1;
+    }) as typeof navigator.geolocation.watchPosition;
+  });
+
+  await page.goto("/capture");
+
+  await page.getByRole("button", { name: "Pothole/Road damage" }).click();
+  await page.getByRole("button", { name: "Capture Photo" }).click();
+
+  await expect(page.getByTestId("permission-hard-block")).toContainText("Location access is off");
+});

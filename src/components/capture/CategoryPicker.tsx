@@ -25,7 +25,7 @@ export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
   return (
     <div className="flex flex-col gap-2">
       <p className="text-sm font-medium">What&apos;s the problem?</p>
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 gap-2" data-testid="category-picker">
         {CATEGORIES.map((c) => {
           const Icon = CATEGORY_ICONS[c.value];
           const selected = value === c.value;
@@ -35,7 +35,7 @@ export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
               type="button"
               onClick={() => onChange(c.value)}
               aria-pressed={selected}
-              className={`flex min-h-11 items-center gap-1.5 rounded-full border px-3 py-2 text-sm transition-colors ${
+              className={`flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border px-3 py-2 text-sm transition-colors ${
                 selected
                   ? "border-amber-500 bg-amber-50 text-amber-900"
                   : "border-input bg-zinc-100 text-zinc-900"

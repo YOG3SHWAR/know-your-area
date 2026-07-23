@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone.
   4. Each complaint has a unique, opaque ID and can be opened directly via search-by-ID or its permalink URL.
 
-**Plans**: 4/4 plans executed
+**Plans**: 6/7 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Project scaffold, PostGIS data layer + shared type contract, opaque IDs, test harness (Wave 1)
@@ -48,6 +48,12 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] 01-03-PLAN.md — Capture hardening: overlay burn-in, orientation-safe canvas, GPS wait-for-fix, permission hard-block, category picker (Wave 3)
 - [x] 01-04-PLAN.md — Feed discovery: proximity feed + infinite scroll + states, search-by-ID, /c/{id} permalink (Wave 3)
+
+**Gap Closure** *(from 01-UAT.md — G-01-3 blocker, G-01-4 cosmetic, G-01-EXTRA-1 blocker)*
+
+- [x] 01-05-PLAN.md — Capture fixes: route real camera/GPS denial into the hard-block (G-01-3) + uniform 2-col category grid (G-01-4) (Gap Wave 1)
+- [x] 01-06-PLAN.md — DB client hardening: postgres.js ssl/prepare:false + surface real feed-query error (G-01-EXTRA-1 code fix) (Gap Wave 1)
+- [ ] 01-07-PLAN.md — Production feed verify: DATABASE_URL pooler + redeploy human-verify checkpoint (G-01-EXTRA-1 closure) (Gap Wave 2, blocked on 01-06)
 
 **UI hint**: yes
 
@@ -171,7 +177,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Capture-to-Feed Skeleton | 4/4 | In Progress|  |
+| 1. Core Capture-to-Feed Skeleton | 6/7 | In Progress|  |
 | 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |

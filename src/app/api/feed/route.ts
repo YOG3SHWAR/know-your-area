@@ -33,7 +33,16 @@ export async function GET(request: Request) {
 
     return NextResponse.json(page);
   } catch (err) {
-    console.error("feed query failed", err);
+    // T-01-09: log full error detail server-side only (greppable in Vercel
+    // function logs to disambiguate G-01-EXTRA-1's ranked hypotheses); the
+    // client-facing response stays a fixed generic message with no DB
+    // internals.
+    if (err instanceof Error) {
+      const code = (err as Error & { code?: unknown }).code;
+      console.error("feed query failed", err.name, err.message, code);
+    } else {
+      console.error("feed query failed", String(err));
+    }
     return NextResponse.json({ error: "Couldn't load reports." }, { status: 500 });
   }
 }
