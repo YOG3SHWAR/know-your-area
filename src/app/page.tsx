@@ -1,83 +1,91 @@
-import { desc, sql } from "drizzle-orm";
-import Image from "next/image";
+import Link from "next/link";
+import { Suspense } from "react";
 
+import { FeedList } from "@/components/feed/FeedList";
 import { LocationRequester } from "@/components/feed/LocationRequester";
-import { db } from "@/lib/db/client";
-import { complaints } from "@/lib/db/schema";
-import { CATEGORIES, type Category, type FeedItem } from "@/types/complaint";
+import { Skeleton } from "@/components/ui/skeleton";
+import { nearbyFeed, recentFeed } from "@/lib/feed";
 
 const FEED_LIMIT = 20;
 
-function categoryLabel(category: Category): string {
-  return CATEGORIES.find((c) => c.value === category)?.label ?? category;
+// UI-SPEC: initial SSR load shows skeleton feed cards. This intentionally
+// mirrors FeedCard's real layout (photo tile + two meta rows) so the swap
+// from skeleton -> real content doesn't reflow the page.
+function FeedSkeleton() {
+  return (
+    <ul className="flex flex-col gap-4" aria-hidden>
+      {Array.from({ length: 3 }).map((_, i) => (
+        <li key={i} className="overflow-hidden rounded-md border">
+          <Skeleton className="aspect-video w-full rounded-none" />
+          <div className="flex flex-col gap-2 p-3">
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-3 w-40" />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
 }
 
-function photoUrl(photoKey: string): string {
-  return `${process.env.R2_PUBLIC_BASE_URL}/${photoKey}`;
+function EmptyState() {
+  return (
+    <div className="flex flex-col gap-1 py-12 text-center">
+      <p className="text-lg font-semibold">No reports near you yet</p>
+      <p className="text-sm text-muted-foreground">Reports from your area will show up here.</p>
+    </div>
+  );
 }
 
-// SSR proximity feed query (RESEARCH.md Pattern 2 / FEED-01). Drizzle's
-// `geometry` column is planar/degree-based, so every distance computation
-// casts `::geography` inline via raw sql to get meter-accurate results, and
-// ordering uses the `<->` KNN operator so the GiST index is used.
-async function nearbyFeed(lng: number, lat: number, limit: number): Promise<FeedItem[]> {
-  const point = sql`ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)`;
-  const rows = await db
-    .select({
-      publicId: complaints.publicId,
-      category: complaints.category,
-      createdAt: complaints.createdAt,
-      photoKey: complaints.photoKey,
-      distanceM: sql<number>`ST_Distance(${complaints.location}::geography, ${point}::geography)`,
-    })
-    .from(complaints)
-    .orderBy(sql`${complaints.location} <-> ${point}`)
-    .limit(limit);
-
-  return rows.map((row) => ({
-    publicId: row.publicId,
-    category: row.category as Category,
-    distanceM: row.distanceM,
-    createdAt: row.createdAt,
-    photoUrl: photoUrl(row.photoKey),
-  }));
+function FeedErrorBanner() {
+  return (
+    <div className="flex flex-col items-center gap-3 rounded-md border border-destructive/40 bg-destructive/5 p-4 text-center">
+      <p className="text-sm text-destructive">
+        Couldn&apos;t load reports. Check your connection and try again.
+      </p>
+      <Link href="/" className="text-sm font-medium text-amber-600 underline">
+        Retry
+      </Link>
+    </div>
+  );
 }
 
-// D-07 fallback: if the visitor's location is unavailable/denied, the feed
-// still renders — recency order, distance hidden — never a query against a
-// fake (0,0) coordinate.
-async function recentFeed(limit: number): Promise<FeedItem[]> {
-  const rows = await db
-    .select({
-      publicId: complaints.publicId,
-      category: complaints.category,
-      createdAt: complaints.createdAt,
-      photoKey: complaints.photoKey,
-    })
-    .from(complaints)
-    .orderBy(desc(complaints.createdAt))
-    .limit(limit);
+// SSR data-fetching boundary, separated from Home so it can be wrapped in a
+// <Suspense> that streams FeedSkeleton first (UI-SPEC "loading" state) and
+// so a query failure can be caught locally without taking down the header
+// or the search box above it (UI-SPEC "error" state — never blanks the
+// feed).
+async function FeedContent({
+  hasLocation,
+  lat,
+  lng,
+}: {
+  hasLocation: boolean;
+  lat?: number;
+  lng?: number;
+}) {
+  let page;
+  try {
+    page =
+      hasLocation && lat !== undefined && lng !== undefined
+        ? await nearbyFeed({ lng, lat, limit: FEED_LIMIT })
+        : await recentFeed({ limit: FEED_LIMIT });
+  } catch {
+    return <FeedErrorBanner />;
+  }
 
-  return rows.map((row) => ({
-    publicId: row.publicId,
-    category: row.category as Category,
-    distanceM: null,
-    createdAt: row.createdAt,
-    photoUrl: photoUrl(row.photoKey),
-  }));
-}
+  if (page.items.length === 0) {
+    return <EmptyState />;
+  }
 
-function formatDistance(distanceM: number): string {
-  if (distanceM < 1000) return `${Math.round(distanceM)} m away`;
-  return `${(distanceM / 1000).toFixed(1)} km away`;
-}
-
-function formatRelativeTime(date: Date): string {
-  const diffMin = Math.round((Date.now() - new Date(date).getTime()) / 60_000);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffH = Math.round(diffMin / 60);
-  if (diffH < 24) return `${diffH}h ago`;
-  return `${Math.round(diffH / 24)}d ago`;
+  return (
+    <FeedList
+      initialItems={page.items}
+      initialCursor={page.nextCursor}
+      hasLocation={hasLocation}
+      lat={lat}
+      lng={lng}
+    />
+  );
 }
 
 export default async function Home({
@@ -90,45 +98,18 @@ export default async function Home({
   const lng = params.lng !== undefined ? Number(params.lng) : undefined;
   const hasLocation = lat !== undefined && lng !== undefined && !Number.isNaN(lat) && !Number.isNaN(lng);
 
-  const items = hasLocation ? await nearbyFeed(lng, lat, FEED_LIMIT) : await recentFeed(FEED_LIMIT);
-
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-6">
       <LocationRequester hasLocation={hasLocation} />
       <h1 className="text-2xl font-semibold">Know Your Area</h1>
-
-      {items.length === 0 ? (
-        <div className="flex flex-col gap-1 py-12 text-center">
-          <p className="text-lg font-semibold">No reports near you yet</p>
-          <p className="text-sm text-muted-foreground">
-            Reports from your area will show up here.
-          </p>
-        </div>
-      ) : (
-        <ul className="flex flex-col gap-4">
-          {items.map((item) => (
-            <li key={item.publicId} className="overflow-hidden rounded-md border">
-              <div className="relative aspect-video w-full bg-zinc-100">
-                <Image
-                  src={item.photoUrl}
-                  alt={categoryLabel(item.category)}
-                  fill
-                  unoptimized
-                  className="object-cover"
-                />
-              </div>
-              <div className="flex items-center justify-between p-3 text-sm">
-                <span className="font-medium">{categoryLabel(item.category)}</span>
-                <span className="text-muted-foreground">
-                  {item.distanceM != null
-                    ? formatDistance(item.distanceM)
-                    : formatRelativeTime(item.createdAt)}
-                </span>
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/* SearchById mounts here once Task 2 creates the component
+          (src/components/feed/SearchById.tsx). */}
+      {/* Re-mounting the Suspense boundary (via `key`) on the
+          recency->proximity transition re-shows FeedSkeleton for that
+          swap, not just the very first paint. */}
+      <Suspense key={hasLocation ? `${lat}:${lng}` : "recent"} fallback={<FeedSkeleton />}>
+        <FeedContent hasLocation={hasLocation} lat={lat} lng={lng} />
+      </Suspense>
     </div>
   );
 }
