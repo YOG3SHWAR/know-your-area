@@ -70,7 +70,8 @@ async function FeedContent({
       hasLocation && lat !== undefined && lng !== undefined
         ? await nearbyFeed({ lng, lat, limit: FEED_LIMIT })
         : await recentFeed({ limit: FEED_LIMIT });
-  } catch {
+  } catch (err) {
+    console.error("feed query failed", err);
     return <FeedErrorBanner />;
   }
 

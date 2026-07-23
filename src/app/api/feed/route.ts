@@ -32,7 +32,8 @@ export async function GET(request: Request) {
       : await recentFeed({ limit, cursor });
 
     return NextResponse.json(page);
-  } catch {
+  } catch (err) {
+    console.error("feed query failed", err);
     return NextResponse.json({ error: "Couldn't load reports." }, { status: 500 });
   }
 }
