@@ -82,8 +82,8 @@ export async function nearbyFeed({
     decoded && decoded.distanceM !== undefined
       ? sql`AND (
           distance_m > ${decoded.distanceM}
-          OR (distance_m = ${decoded.distanceM} AND created_at < ${new Date(decoded.createdAt)})
-          OR (distance_m = ${decoded.distanceM} AND created_at = ${new Date(decoded.createdAt)} AND public_id > ${decoded.publicId})
+          OR (distance_m = ${decoded.distanceM} AND created_at < ${decoded.createdAt})
+          OR (distance_m = ${decoded.distanceM} AND created_at = ${decoded.createdAt} AND public_id > ${decoded.publicId})
         )`
       : sql``;
 
@@ -139,8 +139,8 @@ export async function recentFeed({
 
   const cursorFilter = decoded
     ? sql`AND (
-        created_at < ${new Date(decoded.createdAt)}
-        OR (created_at = ${new Date(decoded.createdAt)} AND public_id > ${decoded.publicId})
+        created_at < ${decoded.createdAt}
+        OR (created_at = ${decoded.createdAt} AND public_id > ${decoded.publicId})
       )`
     : sql``;
 
