@@ -28,7 +28,12 @@ export async function presignPhotoUpload(key: string, contentType: string): Prom
     Key: key,
     ContentType: contentType,
   });
-  return getSignedUrl(r2, command, { expiresIn: 60 });
+  // WR-08: 60s was too tight for the product's India-only, mobile-first
+  // target network conditions (3G/congested-4G), where a multi-MB captured
+  // JPEG can plausibly take longer than 60s to PUT, failing the upload with
+  // an expired-signature error through no fault of the user. 300s gives
+  // meaningfully more headroom while still being a short-lived credential.
+  return getSignedUrl(r2, command, { expiresIn: 300 });
 }
 
 // Enforces the product's core "only a real, live camera upload can become a
