@@ -41,8 +41,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **FEED-01**: Landing page shows a feed of complaints near the user's current location
 - [ ] **FEED-02**: Feed is ranked using a combination of recency, proximity, and engagement (not a flat chronological list)
-- [ ] **FEED-03**: User can search for a complaint by its ID
-- [ ] **FEED-04**: Each complaint has a shareable permalink
+- [x] **FEED-03**: User can search for a complaint by its ID
+- [x] **FEED-04**: Each complaint has a shareable permalink
 
 ### Engagement & Moderation
 
@@ -116,8 +116,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEDUP-03 | Phase 3 | Pending |
 | FEED-01 | Phase 1 | Complete |
 | FEED-02 | Phase 5 | Pending |
-| FEED-03 | Phase 1 | Pending |
-| FEED-04 | Phase 1 | Pending |
+| FEED-03 | Phase 1 | Complete |
+| FEED-04 | Phase 1 | Complete |
 | ENGAGE-01 | Phase 5 | Pending |
 | ENGAGE-02 | Phase 5 | Pending |
 | ENGAGE-03 | Phase 5 | Pending |

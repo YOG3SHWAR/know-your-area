@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
-status: executing
-stopped_at: Completed 01-03-PLAN.md
-last_updated: "2026-07-23T09:05:22.101Z"
+status: verifying
+stopped_at: Completed 01-04-PLAN.md
+last_updated: "2026-07-23T09:54:21.413Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 4
-  completed_plans: 3
+  completed_plans: 4
 ---
 
 # Project State
@@ -29,10 +29,10 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-07-23 — Phase 01 execution started
 
-Progress: [████████░░] 75%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [████████░░] 75%
 | Phase 01 P01 | 40min | 3 tasks | 34 files |
 | Phase 01 P02 | 55min | 2 tasks | 13 files |
 | Phase 01 P03 | 35min | 3 tasks | 8 files |
+| Phase 01 P04 | 50min | 2 tasks | 14 files |
 
 ## Accumulated Context
 
@@ -81,6 +82,8 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: GPS fix acquired independently twice per submission (capture-time overlay read + pre-submit read) rather than a single lifted fix — matches plan's own key_links, at the cost of ~8s combined wait-for-fix latency
 - [Phase ?]: Added a no-fix hard-block screen/copy not in UI-SPEC's Copywriting Contract (only camera/location-denied copy is specified) to satisfy the plan's explicit hard-block-on-no-fix acceptance criterion
 - [Phase ?]: lucide-react's AlertTriangle is named TriangleAlert in the installed ^1.26.0 package — used TriangleAlert for the pothole category icon
+- [Phase ?]: Phase 1: LocationRequester replaced its hardcoded feed-only redirect path with usePathname() so it's safe to reuse on the permalink page (/c/[id]) as well as the feed
+- [Phase ?]: Phase 1: e2e specs against the shared live DB must identify complaints by their own opaque public_id rather than by category/content, since cross-run test data accumulates in the same hosted Supabase instance
 
 ### Pending Todos
 
@@ -104,6 +107,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T09:05:22.095Z
-Stopped at: Completed 01-03-PLAN.md
+Last session: 2026-07-23T09:54:21.407Z
+Stopped at: Completed 01-04-PLAN.md
 Resume file: None
