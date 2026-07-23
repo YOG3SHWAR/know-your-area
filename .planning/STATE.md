@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-07-23T07:22:20.972Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-07-23T08:11:41.742Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 1
+  completed_plans: 2
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-07-23 — Phase 01 execution started
 
-Progress: [███░░░░░░░] 25%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -59,6 +59,7 @@ Progress: [███░░░░░░░] 25%
 | Plan | Duration | Tasks | Files |
 |------|----------|-------|-------|
 | Phase 01 P01 | 40min | 3 tasks | 34 files |
+| Phase 01 P02 | 55min | 2 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -74,6 +75,8 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: Used hosted Supabase Postgres+PostGIS instead of local docker-compose for the schema push (Docker not installed on execution machine); docker-compose.yml still authored for contributors with Docker
 - [Phase ?]: shadcn CLI's classic --style/--base-color init flags were removed upstream; new-york/neutral design system reconstructed by hand (components.json, cn() helper, oklch theme) then components fetched via the current CLI's shadcn add
 - [Phase ?]: drizzle-kit 0.31.10 confirmed to drop the geometry column's SRID on both generate and push (RESEARCH Assumption A3); fixed live DB via manual ALTER + documented as durable in-code warning in schema.ts
+- [Phase ?]: Phase 1: LocationRequester client component added (not in plan's file list) to bridge navigator.geolocation into the SSR feed's Server Component query — App Router forbids mixing use client into an async server component file
+- [Phase ?]: Phase 1: photoKey's R2-object ID and the complaint row's public_id are independent nanoid generations (decoupled upload-then-insert steps), not reconciled
 
 ### Pending Todos
 
@@ -97,6 +100,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T07:22:20.960Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-07-23T08:11:31.647Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
