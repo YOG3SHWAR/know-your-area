@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 
 // D-03 / RESEARCH.md Pitfall 5: once a user denies camera or location
 // permission, calling getUserMedia/getCurrentPosition again does NOT
@@ -11,7 +11,23 @@ import { useEffect, useState } from "react";
 // is `denied` — no retry-submit path, no degraded fallback (SUBM-01
 // anti-abuse: the live in-app camera is the only way to produce a
 // submission photo).
+//
+// G-01-3: the proactive Permissions API check above is not sufficient on
+// its own — Safari never reports "camera" as "denied" (it stays "prompt"),
+// and every browser reports "prompt" on a first visit regardless of what
+// the user ultimately chooses. So a real getUserMedia/geolocation rejection
+// must be able to escalate into the same hard-block from inside the
+// capture flow's own descendants (CameraCapture). PermissionDenialContext
+// exposes a `reportDenied` callback for exactly that.
 type GateState = "checking" | "ok" | "camera-denied" | "location-denied";
+
+type DenialKind = "camera" | "location";
+
+const PermissionDenialContext = createContext<(kind: DenialKind) => void>(() => {});
+
+export function usePermissionDenial() {
+  return useContext(PermissionDenialContext);
+}
 
 const CAMERA_DENIED_COPY =
   "Camera access is off. This app only accepts photos taken live in the app, so we can't continue without it. Turn on camera access in your browser's site settings, then reload this page.";
@@ -21,6 +37,16 @@ const LOCATION_DENIED_COPY =
 
 export function PermissionGate({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<GateState>("checking");
+  // Once a denial has been reported (proactively or via escalation), a
+  // later proactive `evaluate()` run (e.g. an `onchange` firing, or the
+  // async proactive check resolving after an escalation already fired)
+  // must never downgrade it back to "ok".
+  const deniedRef = useRef(false);
+
+  const reportDenied = useCallback((kind: DenialKind) => {
+    deniedRef.current = true;
+    setState(kind === "camera" ? "camera-denied" : "location-denied");
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +59,7 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
         // names at all (notably Safari for "camera") — fail open and let
         // the capture flow's own getUserMedia/geolocation calls surface a
         // denial instead of false-blocking a browser we can't introspect.
-        if (!cancelled) setState("ok");
+        if (!cancelled && !deniedRef.current) setState("ok");
         return;
       }
 
@@ -49,10 +75,12 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
         const evaluate = () => {
           if (cancelled) return;
           if (camera!.state === "denied") {
+            deniedRef.current = true;
             setState("camera-denied");
           } else if (location!.state === "denied") {
+            deniedRef.current = true;
             setState("location-denied");
-          } else {
+          } else if (!deniedRef.current) {
             setState("ok");
           }
         };
@@ -64,7 +92,7 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
         camera.onchange = evaluate;
         location.onchange = evaluate;
       } catch {
-        if (!cancelled) setState("ok");
+        if (!cancelled && !deniedRef.current) setState("ok");
       }
     }
 
@@ -93,5 +121,9 @@ export function PermissionGate({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <>{children}</>;
+  return (
+    <PermissionDenialContext.Provider value={reportDenied}>
+      {children}
+    </PermissionDenialContext.Provider>
+  );
 }

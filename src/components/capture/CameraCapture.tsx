@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import { usePermissionDenial } from "@/components/capture/PermissionGate";
 import { Button } from "@/components/ui/button";
 import { captureBestFix } from "@/lib/geolocation";
 import { drawOverlay, formatOverlayText } from "@/lib/overlay";
@@ -25,6 +26,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<Status>("starting");
   const [error, setError] = useState<string | null>(null);
+  const reportDenied = usePermissionDenial();
 
   useEffect(() => {
     let cancelled = false;
@@ -44,7 +46,17 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       })
       .catch((err) => {
         if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Camera access failed.");
+        // G-01-3: on a browser that does not proactively report camera as
+        // "denied" (Safari, or any browser on a first-visit "prompt"),
+        // PermissionGate's own check fails open — this is the actual
+        // denial signal. Escalate into the shared hard-block instead of
+        // rendering the raw browser error text (T-01-07: no UA-specific
+        // internals leak into the UI).
+        if (err instanceof DOMException && err.name === "NotAllowedError") {
+          reportDenied("camera");
+          return;
+        }
+        setError("Couldn't start the camera.");
         setStatus("error");
       });
 
@@ -52,7 +64,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       cancelled = true;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [reportDenied]);
 
   async function handleCapture() {
     const video = videoRef.current;
@@ -83,7 +95,20 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     let fix: Awaited<ReturnType<typeof captureBestFix>>;
     try {
       fix = await captureBestFix();
-    } catch {
+    } catch (err) {
+      // G-01-3: a GeolocationPositionError with code 1 (PERMISSION_DENIED)
+      // is a real denial — escalate into the shared hard-block. Any other
+      // rejection (e.g. captureBestFix's "no-fix" timeout) keeps the
+      // existing generic retry message.
+      if (
+        err &&
+        typeof err === "object" &&
+        "code" in err &&
+        (err as { code: unknown }).code === 1
+      ) {
+        reportDenied("location");
+        return;
+      }
       setError("Couldn't get your location for this photo. Try again.");
       setStatus("error");
       return;
