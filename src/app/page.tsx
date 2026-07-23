@@ -3,6 +3,7 @@ import { Suspense } from "react";
 
 import { FeedList } from "@/components/feed/FeedList";
 import { LocationRequester } from "@/components/feed/LocationRequester";
+import { SearchById } from "@/components/feed/SearchById";
 import { Skeleton } from "@/components/ui/skeleton";
 import { nearbyFeed, recentFeed } from "@/lib/feed";
 
@@ -102,8 +103,7 @@ export default async function Home({
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-6">
       <LocationRequester hasLocation={hasLocation} />
       <h1 className="text-2xl font-semibold">Know Your Area</h1>
-      {/* SearchById mounts here once Task 2 creates the component
-          (src/components/feed/SearchById.tsx). */}
+      <SearchById />
       {/* Re-mounting the Suspense boundary (via `key`) on the
           recency->proximity transition re-shows FeedSkeleton for that
           swap, not just the very first paint. */}
