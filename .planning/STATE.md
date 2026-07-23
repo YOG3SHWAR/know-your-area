@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-05-PLAN.md
-last_updated: "2026-07-23T15:25:06.327Z"
+stopped_at: Completed 01-06-PLAN.md
+last_updated: "2026-07-23T15:29:37.104Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 7
-  completed_plans: 5
+  completed_plans: 6
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-07-23 — Phase 01 execution started
 
-Progress: [███████░░░] 71%
+Progress: [█████████░] 86%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [███████░░░] 71%
 | Phase 01 P03 | 35min | 3 tasks | 8 files |
 | Phase 01 P04 | 50min | 2 tasks | 14 files |
 | Phase 01 P05 | 35min | 2 tasks | 4 files |
+| Phase 01 P06 | 15min | 2 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: Phase 1: e2e specs against the shared live DB must identify complaints by their own opaque public_id rather than by category/content, since cross-run test data accumulates in the same hosted Supabase instance
 - [Phase ?]: 01-05: Escalation wired only through CameraCapture (both getUserMedia mount + captureBestFix on Capture), not CapturePage's separate pre-Publish captureBestFix call — CameraCapture always runs both denial-prone operations before Publish is reachable
 - [Phase ?]: 01-05: Used a deniedRef latch (not state) in PermissionGate to prevent a slower proactive Permissions-API check from downgrading an already-escalated denial back to ok
+- [Phase ?]: 01-06: Used beforeAll + dynamic import() in db-client-options.test.ts instead of a top-of-file env assignment, since ES module static imports are hoisted above ordinary top-level statements
+- [Phase ?]: 01-06: feed route logs err.name/err.message/err.code as three separate console.error args (not a single object) for a shape-agnostic test assertion
 
 ### Pending Todos
 
@@ -110,6 +113,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T15:25:06.321Z
-Stopped at: Completed 01-05-PLAN.md
+Last session: 2026-07-23T15:29:37.099Z
+Stopped at: Completed 01-06-PLAN.md
 Resume file: None
