@@ -9,7 +9,7 @@ export function formatDistance(distanceM: number): string {
 
 export function formatRelativeTime(date: Date | string): string {
   const d = typeof date === "string" ? new Date(date) : date;
-  const diffMin = Math.round((Date.now() - d.getTime()) / 60_000);
+  const diffMin = Math.max(0, Math.round((Date.now() - d.getTime()) / 60_000));
   if (diffMin < 60) return `${diffMin}m ago`;
   const diffH = Math.round(diffMin / 60);
   if (diffH < 24) return `${diffH}h ago`;
