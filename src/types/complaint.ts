@@ -23,7 +23,7 @@ export const submissionSchema = z.object({
   category: z.enum(CATEGORY_VALUES),
   lat: z.number().min(6.0).max(37.5),
   lng: z.number().min(68.0).max(97.5),
-  accuracy: z.number().nonnegative(),
+  accuracy: z.number().finite().nonnegative().max(100_000),
   photoKey: z
     .string()
     .regex(/^complaints\/KYA-[A-Z0-9]{7}\.(jpe?g|webp)$/),
