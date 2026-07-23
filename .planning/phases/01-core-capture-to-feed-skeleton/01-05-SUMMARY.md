@@ -136,6 +136,10 @@ None - no external service configuration required.
 - Full `tests/e2e/capture.spec.ts` suite (6 tests), `npx tsc --noEmit`, and targeted `eslint` on changed files all pass clean.
 - No blockers for remaining Phase 01 plans (06, 07).
 
+## Self-Check: PASSED
+
+All 4 modified/created files verified present on disk; all 4 commit hashes (aabcea3, 332bb5b, 8bcced1, 29fc412) verified present in git log.
+
 ---
 *Phase: 01-core-capture-to-feed-skeleton*
 *Completed: 2026-07-23*
