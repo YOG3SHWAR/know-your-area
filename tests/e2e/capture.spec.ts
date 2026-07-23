@@ -25,7 +25,11 @@ test("capture flow: live camera + GPS produces a published complaint (SUBM-01, S
   });
   await page.getByRole("button", { name: "Publish Report" }).click();
 
-  await expect(page).toHaveURL("http://localhost:3000/", { timeout: 20_000 });
+  // The feed page's LocationRequester (added in Plan 01-04) appends
+  // ?lat=&lng= shortly after mount, so match the bare path with an optional
+  // query string rather than an exact "/" — same pattern used throughout
+  // feed.spec.ts, search.spec.ts, and permalink.spec.ts.
+  await expect(page).toHaveURL(/^http:\/\/localhost:3000\/(\?.*)?$/, { timeout: 20_000 });
 });
 
 // D-03: a proactively-denied camera or location permission hard-blocks the
