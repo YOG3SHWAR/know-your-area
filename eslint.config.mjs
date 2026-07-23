@@ -14,6 +14,14 @@ const eslintConfig = [
   {
     ignores: [".next/**", "out/**", "build/**", "next-env.d.ts"],
   },
+  {
+    // Playwright's fixture API uses a `use` callback parameter that isn't a
+    // React hook -- the react-hooks rule false-positives on it in test files.
+    files: ["tests/e2e/**/*.ts"],
+    rules: {
+      "react-hooks/rules-of-hooks": "off",
+    },
+  },
 ];
 
 export default eslintConfig;
