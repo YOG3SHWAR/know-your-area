@@ -1,16 +1,20 @@
 import { HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
+import { requireEnv } from "@/lib/env";
+
+const R2_BUCKET_NAME = requireEnv("R2_BUCKET_NAME");
+
 // S3-compatible client pointed at Cloudflare R2 (RESEARCH.md Pattern 1).
 // Photo bytes always flow browser -> R2 directly via a presigned PUT; this
 // server-side client only ever mints the signed URL, never touches the
 // bytes (Vercel's 4.5MB body limit — RESEARCH.md Pitfall 1).
 const r2 = new S3Client({
   region: "auto",
-  endpoint: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  endpoint: `https://${requireEnv("R2_ACCOUNT_ID")}.r2.cloudflarestorage.com`,
   credentials: {
-    accessKeyId: process.env.R2_ACCESS_KEY_ID!,
-    secretAccessKey: process.env.R2_SECRET_ACCESS_KEY!,
+    accessKeyId: requireEnv("R2_ACCESS_KEY_ID"),
+    secretAccessKey: requireEnv("R2_SECRET_ACCESS_KEY"),
   },
 });
 
@@ -20,7 +24,7 @@ const r2 = new S3Client({
 // mismatched upload (RESEARCH.md Pitfall 6).
 export async function presignPhotoUpload(key: string, contentType: string): Promise<string> {
   const command = new PutObjectCommand({
-    Bucket: process.env.R2_BUCKET_NAME!,
+    Bucket: R2_BUCKET_NAME,
     Key: key,
     ContentType: contentType,
   });
@@ -36,7 +40,7 @@ export async function presignPhotoUpload(key: string, contentType: string): Prom
 // callers cannot forge a `photoKey` that merely matches the regex shape.
 export async function photoExists(key: string): Promise<boolean> {
   try {
-    await r2.send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key }));
+    await r2.send(new HeadObjectCommand({ Bucket: R2_BUCKET_NAME, Key: key }));
     return true;
   } catch {
     return false;
