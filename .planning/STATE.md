@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 1
-current_phase_name: Core Capture-to-Feed Skeleton
+current_phase: 01
+current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Phase 01 UI-SPEC approved
-last_updated: "2026-07-23T04:19:00.418Z"
-last_activity: 2026-07-22
-last_activity_desc: Roadmap created (6 phases, 26/26 requirements mapped)
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-07-23T07:22:20.972Z"
+last_activity: 2026-07-23
+last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 0
   total_plans: 4
-  completed_plans: 0
+  completed_plans: 1
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Make civic problem reporting dead simple and visible — so people who don't know (or don't trust) official government reporting channels can still report and see local issues, with photo-verified, deduplicated, publicly visible complaints.
-**Current focus:** Phase 1 — Core Capture-to-Feed Skeleton
+**Current focus:** Phase 01 — core-capture-to-feed-skeleton
 
 ## Current Position
 
-Phase: 1 of 6 (Core Capture-to-Feed Skeleton)
-Plan: 0 of TBD in current phase
+Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
+Plan: 2 of 4
 Status: Ready to execute
-Last activity: 2026-07-22 — Roadmap created (6 phases, 26/26 requirements mapped)
+Last activity: 2026-07-23 — Phase 01 execution started
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 25%
 
 ## Performance Metrics
 
@@ -54,6 +54,11 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 40min | 3 tasks | 34 files |
 
 ## Accumulated Context
 
@@ -66,6 +71,9 @@ Roadmap-shaping decisions affecting current work:
 - Roadmap: Reverse geocoding (SUBM-04) folded into the dedup phase as one "Location Pipeline" (they share the GPS-drift spike root cause — Pitfalls 3 & 4).
 - Roadmap: ENGAGE-03/04 (report + admin takedown) and SUBM-05 (face/plate blur) ship in v1 as legal requirements (IT Rules 2021; Section 66E), not deferrable features.
 - Roadmap: Growth/anchor-city seeding is a launch-checklist consideration attached to Phase 6, not a standalone engineering phase — product stays country-wide open from day one.
+- [Phase ?]: Used hosted Supabase Postgres+PostGIS instead of local docker-compose for the schema push (Docker not installed on execution machine); docker-compose.yml still authored for contributors with Docker
+- [Phase ?]: shadcn CLI's classic --style/--base-color init flags were removed upstream; new-york/neutral design system reconstructed by hand (components.json, cn() helper, oklch theme) then components fetched via the current CLI's shadcn add
+- [Phase ?]: drizzle-kit 0.31.10 confirmed to drop the geometry column's SRID on both generate and push (RESEARCH Assumption A3); fixed live DB via manual ALTER + documented as durable in-code warning in schema.ts
 
 ### Pending Todos
 
@@ -89,6 +97,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T03:46:23.901Z
-Stopped at: Phase 01 UI-SPEC approved
-Resume file: /Users/yogi/Documents/projects/know-your-area/.planning/phases/01-core-capture-to-feed-skeleton/01-UI-SPEC.md
+Last session: 2026-07-23T07:22:20.960Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
