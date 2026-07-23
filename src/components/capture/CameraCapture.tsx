@@ -3,17 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { captureBestFix } from "@/lib/geolocation";
+import { drawOverlay, formatOverlayText } from "@/lib/overlay";
 
 type CameraCaptureProps = {
   onCaptured: (photoKey: string) => void;
 };
 
-type Status = "starting" | "ready" | "uploading" | "captured" | "error";
+type Status = "starting" | "ready" | "locating" | "uploading" | "captured" | "error";
 
-// D-01: full getUserMedia live preview + capture-to-canvas (basic tracer
-// version — the geotag/timestamp overlay burn-in from D-02 and iOS
-// orientation hardening from RESEARCH.md Pitfall 3 are Plan 03's
-// refinement of this same component).
+// D-01: full getUserMedia live preview + capture-to-canvas. D-02: a fresh
+// GPS read taken right at capture time is burned onto the canvas as a
+// visible geotag+timestamp overlay (RESEARCH.md "Canvas capture with
+// orientation-safe sizing + overlay burn-in" example) — this is a
+// best-effort visual proof independent of the wait-for-fix read
+// `src/app/capture/page.tsx` takes again just before submit for the value
+// actually stored in the complaint row (see the plan's `captureBestFix`
+// key_link).
 export function CameraCapture({ onCaptured }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -54,8 +60,10 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     if (!video || !stream) return;
 
     // Read live track settings rather than assuming portrait/landscape
-    // (RESEARCH.md Pitfall 3) and never mirror this draw (rear camera is
-    // not mirrored by convention — RESEARCH.md Anti-Patterns).
+    // (RESEARCH.md Pitfall 3) — re-read on every capture, never cache
+    // across the session — and never mirror this draw (rear camera is not
+    // mirrored by convention — RESEARCH.md Anti-Patterns; a mirrored draw
+    // would also flip the burned-in overlay text backwards).
     const track = stream.getVideoTracks()[0];
     const { width, height } = track.getSettings();
 
@@ -70,6 +78,26 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
+    setStatus("locating");
+    setError(null);
+    let fix: Awaited<ReturnType<typeof captureBestFix>>;
+    try {
+      fix = await captureBestFix();
+    } catch {
+      setError("Couldn't get your location for this photo. Try again.");
+      setStatus("error");
+      return;
+    }
+
+    // Burn the geotag + timestamp overlay onto the canvas BEFORE toBlob so
+    // it's part of the stored image bytes, not a separate CSS layer (D-02).
+    const overlayText = formatOverlayText(
+      { lat: fix.lat, lng: fix.lng },
+      fix.accuracy,
+      new Date(),
+    );
+    drawOverlay(ctx, canvas, overlayText);
+
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85),
     );
@@ -80,7 +108,6 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     }
 
     setStatus("uploading");
-    setError(null);
     try {
       const uploadUrlRes = await fetch("/api/upload-url", {
         method: "POST",
@@ -105,23 +132,36 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     }
   }
 
+  const captureLabel =
+    status === "locating" ? "Getting your location…" : status === "uploading" ? "Uploading…" : "Capture Photo";
+
   return (
     <div className="flex flex-col items-center gap-4">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        data-testid="camera-preview"
-        className="aspect-video w-full max-w-md rounded-md bg-black object-cover"
-      />
+      <div className="relative w-full max-w-md">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          data-testid="camera-preview"
+          className="aspect-video w-full rounded-md bg-black object-cover"
+        />
+        {status === "starting" && (
+          <div
+            className="absolute inset-0 flex items-center justify-center rounded-md bg-black/40 text-sm text-white"
+            data-testid="camera-starting"
+          >
+            Starting camera…
+          </div>
+        )}
+      </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button
         type="button"
         onClick={handleCapture}
-        disabled={status === "starting" || status === "uploading"}
+        disabled={status === "starting" || status === "locating" || status === "uploading"}
       >
-        {status === "uploading" ? "Uploading…" : "Capture Photo"}
+        {captureLabel}
       </Button>
     </div>
   );
