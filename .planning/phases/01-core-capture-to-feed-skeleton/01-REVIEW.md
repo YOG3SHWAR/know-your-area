@@ -1,9 +1,10 @@
 ---
 phase: 01-core-capture-to-feed-skeleton
-reviewed: 2026-07-23T10:05:37Z
+reviewed: 2026-07-23T00:00:00Z
 depth: standard
-files_reviewed: 36
+files_reviewed: 39
 files_reviewed_list:
+  - drizzle/0000_next_pete_wisdom.sql
   - src/actions/submit-complaint.ts
   - src/app/api/feed/route.ts
   - src/app/api/upload-url/route.ts
@@ -24,6 +25,7 @@ files_reviewed_list:
   - src/lib/db/schema.ts
   - src/lib/device-id.ts
   - src/lib/distance.ts
+  - src/lib/env.ts
   - src/lib/feed.ts
   - src/lib/geolocation.ts
   - src/lib/ids.ts
@@ -35,165 +37,240 @@ files_reviewed_list:
   - tests/e2e/fixtures.ts
   - tests/e2e/permalink.spec.ts
   - tests/e2e/search.spec.ts
+  - tests/unit/db-client-options.test.ts
   - tests/unit/distance.test.ts
+  - tests/unit/feed-route-logging.test.ts
   - tests/unit/ids.test.ts
   - tests/unit/overlay.test.ts
   - tests/unit/submit-schema.test.ts
-  - drizzle/0000_next_pete_wisdom.sql
 findings:
   critical: 1
-  warning: 8
-  info: 4
+  warning: 6
+  info: 6
   total: 13
 status: issues_found
 ---
 
 # Phase 01: Code Review Report
 
-**Reviewed:** 2026-07-23T10:05:37Z
+**Reviewed:** 2026-07-23
 **Depth:** standard
-**Files Reviewed:** 36
+**Files Reviewed:** 39
 **Status:** issues_found
 
 ## Summary
 
-Reviewed the full capture -> upload -> submit -> feed -> permalink vertical slice. The spatial/pagination SQL (`ST_DWithin`-free but deterministic tie-broken cursors), zod re-validation of the submission payload, IDOR-safe column selection (never the internal serial id), and the CSPRNG-based device-id cookie are all solid and match the documented threat model in the code comments.
+Fresh full pass over the complete current phase-01 file set, including the three gap-closure plans (01-05 permission-escalation hard-block wiring, 01-06 DB client TLS/pooler hardening, 01-07 production feed verification). This supersedes the prior `01-REVIEW.md` pass over plans 01-01–01-04.
 
-However, the single most important stated invariant of this product — **"only live in-app camera capture is allowed"** (`CLAUDE.md` Constraints; `SUBM-01` referenced throughout the capture code) — is enforced **only in the browser UI**. The server-side `submitComplaint` action never verifies that `photoKey` corresponds to an object actually uploaded to R2; it only regex-validates the *shape* of the string. Combined with the complete absence of rate limiting on both the presign and submit endpoints, this means the public, unauthenticated write path can be used to inject arbitrary fake "photo-verified" complaints into the public feed without ever touching a camera or GPS — this is a BLOCKER given the product's entire value proposition rests on photo-verified authenticity.
+Good news first: nearly every finding from the prior review pass has since been genuinely fixed and verified in the current code — `submitComplaint` now calls `photoExists()` (an R2 `HeadObjectCommand`) before inserting, `accuracy` is now `.finite().max(100_000)`, the device-id cookie is now `secure` in production, `requireEnv` replaced the blind `!` env-var assertions in `db/client.ts` and `r2.ts`, both `/api/feed` and the SSR feed path now log caught errors, `formatRelativeTime` now clamps to `0`, `PermissionGate`'s cleanup now clears `onchange` handlers, and the presigned-URL expiry is now 300s (was 60s). These are not re-reported here.
 
-Beyond that, several smaller robustness/quality gaps were found: a permission-change listener leak in `PermissionGate`, a missing `.finite()` guard on the `accuracy` input that can trigger an unhandled DB integer-overflow error, silent env-var non-null assertions with no startup validation, silently-swallowed errors with no server-side logging, and a handful of duplicated helper functions across files.
+This pass found one new BLOCKER: the overlay line-wrapping logic in `src/lib/overlay.ts` silently drops words once a second line starts, meaning the burned-in timestamp — the core artifact the D-02 anti-fraud overlay feature exists to produce — can be missing from the stored photo whenever the coordinate/accuracy text alone fills the first line. No test (unit or e2e) currently exercises this path.
+
+Beyond that, review surfaced new robustness gaps (a missing concurrency guard in `FeedList`'s infinite scroll, an unguarded synchronous canvas-capture path in `CameraCapture`, a DB client with no dev-mode singleton guard, a `Promise.all`-based permission check that can fail open for both permissions together) plus several carried-forward, still-unresolved Info-level items from the prior pass (duplicated `photoUrl`/`categoryLabel`/`CATEGORY_ICONS` helpers, a dead `.jpeg` validation branch, silent handling of a malformed pagination cursor, and unused server-side `webp` support) and the still-open rate-limiting gap on the two write endpoints.
 
 ## Critical Issues
 
-### CR-01: `submitComplaint` never verifies the photo was actually uploaded — public feed can be spammed with fake, non-existent-photo complaints
+### CR-01: Overlay line-wrapping silently drops words after the second line starts, losing the burned-in timestamp
 
-**File:** `src/actions/submit-complaint.ts:28-64` (root cause), compounded by `src/types/complaint.ts:27-30` and `src/app/api/upload-url/route.ts:21-34`
+**File:** `src/lib/overlay.ts:59-68`
+**Issue:** `wrapOverlayLines` is meant to wrap the geotag+timestamp string onto up to `OVERLAY_MAX_LINES` (2) lines. The loop body is:
 
-**Issue:** `submissionSchema.photoKey` only checks the *format* of the key via regex:
-```ts
-photoKey: z.string().regex(/^complaints\/KYA-[A-Z0-9]{7}\.(jpe?g|webp)$/),
+```js
+for (const word of words) {
+  const candidate = current ? `${current} ${word}` : word;
+  if (current === "" || ctx.measureText(candidate).width <= maxWidth) {
+    current = candidate;
+    continue;
+  }
+  lines.push(current);
+  current = word;
+  if (lines.length === OVERLAY_MAX_LINES - 1) break;   // fires as soon as line 2 STARTS
+}
+if (current) lines.push(current);
 ```
-It never confirms the object actually exists in R2. `submitComplaint` (a Next.js Server Action, callable directly over HTTP with an arbitrary JSON body, entirely bypassing `CameraCapture`/`PermissionGate`/`captureBestFix`) inserts the row as soon as this regex passes:
-```ts
-const [row] = await db.insert(complaints).values({
-  publicId, submitterId, category: parsed.category, location: point,
-  accuracyM: Math.round(parsed.accuracy), photoKey: parsed.photoKey,
-}).returning(...)
-```
-Any caller can POST a synthetic `photoKey` like `"complaints/KYA-AAAAAAA.jpg"` (never produced by `/api/upload-url`, never uploaded to R2) together with any category and any India-bounding-box lat/lng, and the row is published to the public feed immediately — no camera, no GPS, no CAPTCHA, no rate limit. `FeedCard`'s broken-image fallback (`imgError` -> category tile) means this doesn't even crash the UI, so the fake reports render seamlessly as "photo-verified" civic complaints. This directly contradicts the project's stated core constraint ("Only live in-app camera capture is allowed; gallery/file uploads must be blocked to reduce fake/old photo abuse") and the code's own threat-model comments (`SUBM-01`, `T-01-02`, `T-01-03`).
 
-**Fix:** Before inserting, verify the object exists in R2 (e.g. a `HeadObjectCommand` against the exact `photoKey`, rejecting the submission if it 404s), or — better — have `/api/upload-url` persist a short-lived, single-use "pending upload" record (Redis/DB row keyed by the minted `key`, with a TTL) that `submitComplaint` must consume-and-delete atomically, guaranteeing a 1:1 relationship between a real presigned upload and a complaint row:
-```ts
-// upload-url/route.ts: after minting `key`, also record it as pending
-await pendingUploads.set(key, { expiresAt: Date.now() + 5 * 60_000 });
+`OVERLAY_MAX_LINES - 1` is `1`. The moment the first line is completed and pushed (`lines.length` becomes `1`), the loop immediately `break`s — but at that point `current` has only just been set to the single word that overflowed line 1. Every subsequent word in `words` is never visited again; the loop doesn't continue accumulating the second line, it just stops. The post-loop `if (current) lines.push(current)` then pushes that lone leftover word as "line 2", and the rest of the string is silently discarded.
 
-// submit-complaint.ts: before insert
-const pending = await pendingUploads.consume(parsed.photoKey); // delete-and-return
-if (!pending) throw new Error("photo not found or already used");
+Concretely, for the real overlay string produced by `formatOverlayText` (e.g. `"12.9716, 77.5946 · ±18m · 23 Jul 2026, 14:03"`), if the first line fills up around `"12.9716, 77.5946 · ±18m"`, the second line ends up being just `"·"` and the entire date/time (`"23 Jul 2026, 14:03"`) is dropped from the rendered overlay — the "graceful truncation" logic further down never catches this because it only ellipsizes a line that itself overflows `maxWidth`, and a 1-word line rarely does.
+
+This directly undermines the CLAUDE.md/D-02 requirement to "burn a visible/embedded geotag+timestamp overlay onto the image at the moment of capture" — the exact artifact this feature exists to guarantee (a verifiable, non-spoofable timestamp+location baked into the image bytes) can be silently missing whenever wrapping to a second line is triggered, which is a common case given the string's length relative to typical mobile photo widths. `tests/unit/overlay.test.ts` only exercises `formatOverlayText` (pure string formatting) — `wrapOverlayLines`/`drawOverlay` (which need canvas metrics) have no test coverage, which is exactly why this shipped undetected.
+
+**Fix:** Remove the premature `break`, or change the exit condition to only stop once the *last allowed* line is itself full, not the moment it starts:
+
+```js
+for (const word of words) {
+  const candidate = current ? `${current} ${word}` : word;
+  if (current === "" || ctx.measureText(candidate).width <= maxWidth) {
+    current = candidate;
+    continue;
+  }
+  lines.push(current);
+  current = word;
+  if (lines.length >= OVERLAY_MAX_LINES) break;
+}
+if (current) lines.push(current);
+if (lines.length > OVERLAY_MAX_LINES) lines.length = OVERLAY_MAX_LINES;
 ```
-This should ship together with basic rate limiting on both endpoints (see WR-07).
+
+Add a unit test (with a minimal stub `CanvasRenderingContext2D`-like object providing `measureText`) that asserts a long overlay string retains its date/time substring on the second line rather than losing words when the coordinate/accuracy prefix alone fills line 1.
 
 ## Warnings
 
-### WR-01: `PermissionGate` leaks `onchange` listeners and updates state after unmount
+### WR-01: `FeedList`'s infinite-scroll fetch has no concurrency guard — risk of duplicate cards
 
-**File:** `src/components/capture/PermissionGate.tsx:59-69`
-**Issue:** `camera.onchange = evaluate;` and `location.onchange = evaluate;` are assigned inside `check()`, but the effect's cleanup only sets a local `cancelled` flag — it never clears these handlers (`camera.onchange = null`), and `evaluate()` itself never checks `cancelled` before calling `setState`. If the component unmounts (e.g. user navigates away from `/capture`) and the browser later fires a permission-change event, `setState` runs on an unmounted component.
-**Fix:**
-```ts
-const evaluate = () => {
-  if (cancelled) return;
-  if (camera.state === "denied") setState("camera-denied");
-  else if (location.state === "denied") setState("location-denied");
-  else setState("ok");
-};
-evaluate();
-camera.onchange = evaluate;
-location.onchange = evaluate;
+**File:** `src/components/feed/FeedList.tsx:34-67`
+**Issue:** The `IntersectionObserver` callback calls `fetchNext(cursor)` directly whenever `entries[0]?.isIntersecting` is true, with no check against the existing `loading` state:
 
-return () => {
-  cancelled = true;
-  camera.onchange = null;
-  location.onchange = null;
-};
+```js
+const observer = new IntersectionObserver((entries) => {
+  if (entries[0]?.isIntersecting) {
+    fetchNext(cursor);
+  }
+});
 ```
 
-### WR-02: `accuracy` input has no upper/finite bound — `Infinity` passes validation and crashes the insert
-
-**File:** `src/types/complaint.ts:26`
-**Issue:** `accuracy: z.number().nonnegative()` accepts `Infinity` (a valid JS `number` that is `>= 0`). `submitComplaint` then does `Math.round(parsed.accuracy)` -> `Infinity`, which Postgres rejects for an `integer` column (`accuracy_m`) with an out-of-range error, surfacing as an unhandled 500 instead of a clean 400 validation error.
+The observer/effect is only re-created when `cursor` changes (i.e., after a fetch resolves), so while a fetch is in flight the same observer keeps watching the sentinel with the same stale `cursor` value. If the intersection callback fires again before the in-flight request resolves (plausible while the user keeps scrolling, or if the browser re-fires for the same visibility transition), `fetchNext` is invoked a second time with the identical cursor, and both responses get appended via `setItems((prev) => [...prev, ...page.items])` — producing duplicate `FeedCard` entries and a duplicate React `key={item.publicId}`.
 **Fix:**
-```ts
-accuracy: z.number().finite().nonnegative().max(100_000),
+```js
+const observer = new IntersectionObserver((entries) => {
+  if (entries[0]?.isIntersecting && !loading) {
+    fetchNext(cursor);
+  }
+});
+```
+(adding `loading` to the effect's dependency array), or track an in-flight ref inside `fetchNext` itself so a duplicate call with the same cursor is a no-op.
+
+### WR-02: `CameraCapture.handleCapture` has no error handling around the synchronous canvas-capture setup
+
+**File:** `src/components/capture/CameraCapture.tsx:69-91`
+**Issue:**
+```js
+const track = stream.getVideoTracks()[0];
+const { width, height } = track.getSettings();
+const canvas = document.createElement("canvas");
+canvas.width = width ?? video.videoWidth;
+canvas.height = height ?? video.videoHeight;
+const ctx = canvas.getContext("2d");
+if (!ctx) { ... }
+ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+```
+If `stream.getVideoTracks()` returns an empty array (e.g. the track ended after the user revoked camera access mid-session, or the device disconnected), `track` is `undefined` and `track.getSettings()` throws synchronously. Because `handleCapture` is an async function invoked from an `onClick` handler without being awaited by the caller, this becomes an unhandled promise rejection: no `error` state is set, `status` never leaves `"ready"`, and the user is left with a "Capture Photo" button that silently does nothing — unlike every other failure path in this component, which surfaces a friendly message. The later `ctx` null-check is already guarded; this earlier block is not.
+**Fix:**
+```js
+const track = stream.getVideoTracks()[0];
+if (!track) {
+  setError("Couldn't capture the photo.");
+  setStatus("error");
+  return;
+}
 ```
 
-### WR-03: Device-id cookie is not marked `secure`
+### WR-03: Postgres client is instantiated at module load with no dev-mode singleton guard
 
-**File:** `src/lib/device-id.ts:17-21`
-**Issue:** `store.set(COOKIE_NAME, id, { httpOnly: true, sameSite: "lax", maxAge: TWO_YEARS_SECONDS })` omits `secure`, so the cookie can be transmitted over a plaintext HTTP connection if one is ever reachable (e.g. a misconfigured preview/staging URL, a downgrade attack).
-**Fix:** Add `secure: process.env.NODE_ENV === "production"` (or unconditionally `true`, since dev over `localhost` still works with `secure`).
-
-### WR-04: Required env vars are accessed with blind `!` assertions, no startup validation
-
-**File:** `src/lib/db/client.ts:6`, `src/lib/r2.ts:8-15,23`
-**Issue:** `postgres(process.env.DATABASE_URL!)` and the R2 client's `R2_ACCOUNT_ID!`, `R2_ACCESS_KEY_ID!`, `R2_SECRET_ACCESS_KEY!`, `R2_BUCKET_NAME!` all use non-null assertions. If any is missing/misspelled in an environment, failure happens deep inside a third-party library at request time with an opaque error (e.g. a literal `"undefined"` in the R2 endpoint URL) instead of a clear, early "missing required env var X" failure.
-**Fix:** Validate required env vars once at module load (e.g. a small `assertEnv(name)` helper or a `zod` env schema) and throw a descriptive error immediately.
-
-### WR-05: Errors are silently swallowed with no server-side logging
-
-**File:** `src/app/api/feed/route.ts:29-37`, `src/app/page.tsx:67-75`
-**Issue:** Both `catch { return NextResponse.json({ error: "Couldn't load reports." }, { status: 500 }); }` and `catch { return <FeedErrorBanner />; }` discard the actual error object entirely — no `console.error`, no logging call of any kind. In production this makes real failures (DB outage, bad SQL, connection pool exhaustion) invisible to operators; the only signal is a generic user-facing message.
-**Fix:** Log the caught error before returning the fallback response, e.g. `catch (err) { console.error("feed query failed", err); return ...; }` (or route through whatever structured logger the project adopts).
-
-### WR-06: `formatRelativeTime` can render a negative duration on clock skew
-
-**File:** `src/lib/distance.ts:10-17`
-**Issue:** `diffMin = Math.round((Date.now() - d.getTime()) / 60_000)` is never clamped to `0`. If the querying server's clock is even slightly behind the DB server's `now()` (used for `created_at` via `defaultNow()`), or immediately after insert with sub-second skew rounding up, this can render `-1m ago` on the feed/permalink.
+**File:** `src/lib/db/client.ts:32-35`
+**Issue:**
+```js
+const databaseUrl = requireEnv("DATABASE_URL");
+const queryClient = postgres(databaseUrl, buildClientOptions(databaseUrl));
+export const db = drizzle(queryClient, { schema });
+```
+This opens a real `postgres.js` connection pool as a side effect of importing the module, with nothing caching it across Next.js dev-server module re-evaluations. The standard mitigation (used by Prisma/Drizzle guides for exactly this reason) is to stash the client on `globalThis` in development so Next.js Fast Refresh reuses the same pool instead of opening a new one on repeated re-imports. Without it, active local development can exhaust Postgres connection limits (especially relevant against Supabase's free-tier connection caps, called out elsewhere in this same codebase's CLAUDE.md).
 **Fix:**
 ```ts
-const diffMin = Math.max(0, Math.round((Date.now() - d.getTime()) / 60_000));
+declare global {
+  // eslint-disable-next-line no-var
+  var __kyaPgClient: ReturnType<typeof postgres> | undefined;
+}
+const queryClient =
+  process.env.NODE_ENV === "production"
+    ? postgres(databaseUrl, buildClientOptions(databaseUrl))
+    : (globalThis.__kyaPgClient ??= postgres(databaseUrl, buildClientOptions(databaseUrl)));
 ```
 
-### WR-07: No rate limiting or abuse quota on the presign and submit endpoints
+### WR-04: Duplicated `photoUrl` helper bypasses the project's own `requireEnv` fail-fast convention
 
-**File:** `src/app/api/upload-url/route.ts` (whole file), `src/actions/submit-complaint.ts` (whole file)
-**Issue:** Neither endpoint enforces any per-IP/per-device quota. `/api/upload-url` mints an R2 presigned PUT URL for any caller, unlimited times (storage-cost amplification vector even without CR-01). `submitComplaint` accepts unlimited inserts from a single device/browser with no cooldown. The project's own stack decisions (`CLAUDE.md` — Upstash Redis + `@upstash/ratelimit`) call this out as required spam control on exactly these endpoints, but no rate limiting is wired up yet.
-**Fix:** Wrap both handlers with a sliding-window limiter keyed on `submitterId`/IP before any downstream work (presign mint, DB insert).
+**File:** `src/lib/feed.ts:6-8`, `src/app/c/[id]/page.tsx:15-17`
+**Issue:** Both files independently define an identical function:
+```js
+function photoUrl(photoKey: string): string {
+  return `${process.env.R2_PUBLIC_BASE_URL}/${photoKey}`;
+}
+```
+`process.env.R2_PUBLIC_BASE_URL` is read directly with no validation — unlike every other required env var in this codebase (`R2_BUCKET_NAME`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `DATABASE_URL`), which all go through `requireEnv` (added, per its own comment in `src/lib/env.ts`, specifically to stop "a literal `undefined` baked into" a URL from failing silently deep inside a request). If `R2_PUBLIC_BASE_URL` is unset or misconfigured, every photo in the feed and every permalink silently renders `undefined/complaints/...` (a broken image, no error) instead of failing fast at startup like its sibling env vars — reintroducing the exact class of bug `requireEnv` was written to prevent.
+**Fix:** Extract one shared helper (e.g. into `src/lib/r2.ts`) using `requireEnv("R2_PUBLIC_BASE_URL")`, and import it from both `feed.ts` and `c/[id]/page.tsx`:
+```js
+export function photoUrl(photoKey: string): string {
+  return `${requireEnv("R2_PUBLIC_BASE_URL")}/${photoKey}`;
+}
+```
 
-### WR-08: 60-second presigned URL expiry may be too short for the target network conditions
+### WR-05: `PermissionGate`'s `Promise.all` permission check fails open for *both* permissions if either query throws
 
-**File:** `src/lib/r2.ts:27`
-**Issue:** `getSignedUrl(r2, command, { expiresIn: 60 })` gives the browser only 60 seconds to complete the PUT after the URL is minted. Given the product is explicitly India-only and mobile-first (per `CLAUDE.md` Constraints), where 3G/congested-4G upload speeds are common, a multi-MB JPEG (canvas-captured, `0.85` quality, potentially large `videoWidth`/`videoHeight`) can plausibly exceed 60s, causing the upload PUT to fail with an expired-signature error even though the user did nothing wrong.
-**Fix:** Increase `expiresIn` to something more generous (e.g. 300s), or downscale the captured canvas before `toBlob` to bound upload size.
+**File:** `src/components/capture/PermissionGate.tsx:66-96`
+**Issue:**
+```js
+const [queriedCamera, queriedLocation] = await Promise.all([
+  navigator.permissions.query({ name: "camera" }),
+  navigator.permissions.query({ name: "geolocation" }),
+]);
+```
+`Promise.all` rejects as soon as either query rejects. The `catch` block below unconditionally does `if (!cancelled && !deniedRef.current) setState("ok")`. So if, say, the `camera` query throws (an unsupported permission name on some browser/version) while `geolocation` is genuinely `denied`, the whole proactive check falls back to `"ok"` — the real geolocation denial is never surfaced by this proactive path at all, and the capture UI briefly renders as usable. In practice this is masked by the `reportDenied` escalation wired into `CameraCapture` (a real `getCurrentPosition`/`watchPosition` call will still fail and escalate), but the proactive, no-interaction check this component exists to provide has a silent blind spot whenever either permission name isn't queryable on a given browser.
+**Fix:** Query independently so one unsupported/erroring permission name doesn't suppress a genuine `denied` result on the other:
+```js
+const [camResult, locResult] = await Promise.allSettled([
+  navigator.permissions.query({ name: "camera" }),
+  navigator.permissions.query({ name: "geolocation" }),
+]);
+camera = camResult.status === "fulfilled" ? camResult.value : undefined;
+location = locResult.status === "fulfilled" ? locResult.value : undefined;
+```
+
+### WR-06: No server-side rate limiting on photo-upload URL minting or complaint submission (carried forward, still unresolved)
+
+**File:** `src/app/api/upload-url/route.ts:21-34`, `src/actions/submit-complaint.ts:29-77`
+**Issue:** Neither the presigned-upload-URL endpoint nor the `submitComplaint` server action has any throttling. Both are reachable by any unauthenticated client (only a device-id cookie, no login) and both trigger real cost/state: `POST /api/upload-url` mints a real R2 presigned PUT URL on every call with no cap, and `submitComplaint` inserts a DB row (after only a cheap `HeadObjectCommand` check, now that CR-01 from the prior review pass is fixed) with no per-device/IP submission cap. A scripted client can loop both endpoints to mint R2 credentials and/or flood the public feed with complaints (re-using one real uploaded photo across many `submitComplaint` calls, since nothing marks a `photoKey` as consumed after first use). CLAUDE.md's own stack decisions call this out explicitly as required spam control on exactly these code paths ("Wrap every endpoint that costs money downstream... with a sliding-window limiter").
+**Fix:** If intentionally deferred to a later phase, record that explicitly in the phase's deferred-items log; otherwise add `@upstash/ratelimit` (or an equivalent limiter) in front of both `POST /api/upload-url` and `submitComplaint`, keyed on the device-id cookie and/or IP, and consider marking a `photoKey` consumed after its first successful `submitComplaint` use.
 
 ## Info
 
-### IN-01: `photoUrl`, `categoryLabel`, and `CATEGORY_ICONS` are each duplicated verbatim across files
+### IN-01: Inconsistent error-logging shape between the SSR feed path and the API feed route
 
-**File:** `src/lib/feed.ts:6-8` vs `src/app/c/[id]/page.tsx:15-17`; `src/components/feed/FeedCard.tsx:32-34` vs `src/app/c/[id]/page.tsx:11-13`; `src/components/capture/CategoryPicker.tsx:8-14` vs `src/components/feed/FeedCard.tsx:12-18`
-**Issue:** Three small helpers/constants are copy-pasted identically rather than shared, so a future change (e.g. adding a trailing-slash guard to `photoUrl`, or adding a 6th category) requires remembering to update every copy in lockstep — exactly the kind of drift risk that produced the env-var/config duplication elsewhere.
-**Fix:** Extract `photoUrl` into `src/lib/r2.ts` (or a new `src/lib/photo-url.ts`), `categoryLabel` and `CATEGORY_ICONS` into `src/types/complaint.ts` or a shared `src/lib/category.ts`, and import from both call sites.
+**File:** `src/app/page.tsx:73-76`, `src/app/api/feed/route.ts:40-45`
+**Issue:** Plan 01-06 specifically upgraded `GET /api/feed`'s catch block to log structured `name`/`message`/`code` fields server-side (to make a future production 500 greppable in Vercel logs, per G-01-EXTRA-1). `src/app/page.tsx`'s `FeedContent` server component has an equivalent `try/catch` around the same `nearbyFeed`/`recentFeed` calls but still does `console.error("feed query failed", err)` — logging the raw `Error` object rather than the same structured shape. If a future production incident manifests only on the SSR path (not the `/api/feed` route), diagnosis is inconsistent with the pattern just established elsewhere in this same phase.
+**Fix:** Extract a shared `logFeedError(err: unknown)` helper used by both `route.ts` and `page.tsx`.
 
-### IN-02: `photoKey` schema regex accepts a `.jpeg` extension that the upload flow never produces
+### IN-02: Captured photo (with burned-in overlay) is never shown to the user before Publish
+
+**File:** `src/components/capture/CameraCapture.tsx:163-193`
+**Issue:** After a successful capture (`status === "captured"`), the component still renders the live `<video>` element — the actual captured frame (with the geotag/timestamp overlay burned in) is never displayed. The user has no way to visually confirm the photo (or the overlay text, given CR-01 above) before tapping "Publish Report" on the parent page.
+**Fix:** Consider rendering the captured blob (e.g. `URL.createObjectURL(blob)` into an `<img>`) once `status === "captured"`, replacing the live preview, so the user can confirm the photo before submitting.
+
+### IN-03: `categoryLabel` and `CATEGORY_ICONS` are duplicated verbatim across files (carried forward, still unresolved)
+
+**File:** `src/components/feed/FeedCard.tsx:12-18,32-34` vs `src/app/c/[id]/page.tsx:11-13`; `src/components/capture/CategoryPicker.tsx:8-14` vs `src/components/feed/FeedCard.tsx:12-18`
+**Issue:** The `categoryLabel` lookup function and the `CATEGORY_ICONS` icon map are each copy-pasted identically in two places rather than shared, so a future change (e.g. adding a 6th category, changing an icon) requires remembering to update every copy in lockstep.
+**Fix:** Extract `categoryLabel` and `CATEGORY_ICONS` into `src/types/complaint.ts` or a new shared `src/lib/category.ts`, and import from both call sites.
+
+### IN-04: `photoKey` schema regex accepts a `.jpeg` extension that the upload flow never produces (carried forward, still unresolved)
 
 **File:** `src/types/complaint.ts:29`
-**Issue:** The regex `\.(jpe?g|webp)$` allows `jpg`, `jpeg`, and `webp`, but `CONTENT_TYPE_BY_EXT` in `src/app/api/upload-url/route.ts:7-10` and `bodySchema` (`z.enum(["jpg", "webp"])`) only ever mint `jpg` or `webp` keys — `jpeg` is dead validation surface, exercised only by the unit test, never reachable through the real flow.
+**Issue:** The regex `\.(jpe?g|webp)$` allows `jpg`, `jpeg`, and `webp`, but `CONTENT_TYPE_BY_EXT` in `src/app/api/upload-url/route.ts:7-10` and its `bodySchema` (`z.enum(["jpg", "webp"])`) only ever mint `jpg` or `webp` keys, and `CameraCapture` always sends `{ ext: "jpg" }`. `jpeg` is dead validation surface, exercised only by the unit test, never reachable through the real flow.
 **Fix:** Tighten the regex to `\.(jpg|webp)$` to match what the system actually produces, or intentionally support `jpeg` end-to-end if there's a reason to keep it.
 
-### IN-03: A malformed `cursor` query param is silently treated as "first page" instead of an error
+### IN-05: A malformed `cursor` query param is silently treated as "first page" instead of an error (carried forward, still unresolved)
 
 **File:** `src/lib/feed.ts:28-43`
-**Issue:** `decodeCursor` catches any parse failure and returns `null`, which both `nearbyFeed`/`recentFeed` treat identically to "no cursor supplied" (i.e., restart from page 1). Since `/api/feed` is a public GET endpoint that accepts an arbitrary `cursor` string from any caller, a corrupted/tampered cursor silently resets pagination rather than surfacing a `400`. If `FeedList`'s client-side append logic (`setItems((prev) => [...prev, ...page.items])`) is ever hit with a resurfaced first page, this produces duplicate `key={item.publicId}` entries in the rendered list.
-**Fix:** Return a `400 Bad Request` from `/api/feed` when `cursor` is present but fails to decode, rather than silently falling back.
+**Issue:** `decodeCursor` catches any parse failure and returns `null`, which both `nearbyFeed`/`recentFeed` treat identically to "no cursor supplied" (restart from page 1). Since `/api/feed` is a public GET endpoint that accepts an arbitrary `cursor` string from any caller, a corrupted/tampered cursor silently resets pagination rather than surfacing a `400`. Combined with WR-01's missing concurrency guard, a client that receives a resurfaced first page mid-scroll can end up with duplicate `key={item.publicId}` entries in `FeedList`.
+**Fix:** Return a `400 Bad Request` from `/api/feed` when `cursor` is present but fails to decode, rather than silently falling back to page 1.
 
-### IN-04: `webp` upload support is fully wired server-side but never used by the client
+### IN-06: `webp` upload support is fully wired server-side but never used by the client (carried forward, still unresolved)
 
-**File:** `src/components/capture/CameraCapture.tsx:101-115`
+**File:** `src/components/capture/CameraCapture.tsx:126-140`
 **Issue:** `canvas.toBlob` always encodes `"image/jpeg"` and the upload request always sends `{ ext: "jpg" }`, so the `webp` branch in `CONTENT_TYPE_BY_EXT` (`src/app/api/upload-url/route.ts`) and the schema's `webp` regex alternative are unreachable dead capability from the only real client.
-**Fix:** Either wire up a `webp` capture path (smaller file size, relevant given WR-08's network concern) or remove the unused `webp` support to reduce surface area until it's needed.
+**Fix:** Either wire up a `webp` capture path (smaller file size — relevant given the India mobile-network constraints noted elsewhere in this codebase) or remove the unused `webp` support until it's actually needed.
 
 ---
 
-_Reviewed: 2026-07-23T10:05:37Z_
+_Reviewed: 2026-07-23_
 _Reviewer: Claude (gsd-code-reviewer)_
 _Depth: standard_
