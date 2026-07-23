@@ -31,7 +31,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   2. When submitting, the user picks one of the 5 fixed categories and the app captures their live GPS location automatically (read from the browser at submit time, not from image EXIF).
   3. A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone.
   4. Each complaint has a unique, opaque ID and can be opened directly via search-by-ID or its permalink URL.
-**Plans**: TBD
+**Plans**: 4 plans
+- [ ] 01-01-PLAN.md — Project scaffold, PostGIS data layer + shared type contract, opaque IDs, test harness (Wave 1)
+- [ ] 01-02-PLAN.md — Walking-skeleton tracer: live capture → GPS → R2 upload → geometry insert → SSR proximity feed (Wave 2)
+- [ ] 01-03-PLAN.md — Capture hardening: overlay burn-in, orientation-safe canvas, GPS wait-for-fix, permission hard-block, category picker (Wave 3)
+- [ ] 01-04-PLAN.md — Feed discovery: proximity feed + infinite scroll + states, search-by-ID, /c/{id} permalink (Wave 3)
 **UI hint**: yes
 
 Notes:
@@ -133,7 +137,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Capture-to-Feed Skeleton | 0/TBD | Not started | - |
+| 1. Core Capture-to-Feed Skeleton | 0/4 | Not started | - |
 | 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |
