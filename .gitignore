@@ -6,6 +6,11 @@ node_modules/
 out/
 build/
 dist/
+next-env.d.ts
+.vercel
+
+# Supabase CLI
+supabase/.temp/
 
 # Env files
 .env
@@ -31,3 +36,9 @@ graphify-out/
 
 # TypeScript
 *.tsbuildinfo
+
+# Test artifacts
+coverage/
+test-results/
+playwright-report/
+blob-report/
