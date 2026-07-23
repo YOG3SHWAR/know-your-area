@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-06-PLAN.md
-last_updated: "2026-07-23T15:29:37.104Z"
+stopped_at: Completed 01-07-PLAN.md - Phase 01 complete
+last_updated: "2026-07-23T15:58:26.487Z"
 last_activity: 2026-07-23
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
-  completed_plans: 6
+  completed_plans: 7
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 3 of 7
+Plan: 4 of 7
 Status: Ready to execute
 Last activity: 2026-07-23 — Phase 01 execution started
 
-Progress: [█████████░] 86%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [█████████░] 86%
 | Phase 01 P04 | 50min | 2 tasks | 14 files |
 | Phase 01 P05 | 35min | 2 tasks | 4 files |
 | Phase 01 P06 | 15min | 2 tasks | 4 files |
+| Phase 01 P07 | 5min | 1 tasks | 0 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,7 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-05: Used a deniedRef latch (not state) in PermissionGate to prevent a slower proactive Permissions-API check from downgrading an already-escalated denial back to ok
 - [Phase ?]: 01-06: Used beforeAll + dynamic import() in db-client-options.test.ts instead of a top-of-file env assignment, since ES module static imports are hoisted above ordinary top-level statements
 - [Phase ?]: 01-06: feed route logs err.name/err.message/err.code as three separate console.error args (not a single object) for a shape-agnostic test assertion
+- [Phase ?]: 01-07: Production feed 500 root cause resolved via Vercel DATABASE_URL/Supabase pooler config + redeploy; exact hypothesis confirmed not specified by user beyond general pooler-config framing, recorded as reported.
 
 ### Pending Todos
 
@@ -113,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-23T15:29:37.099Z
-Stopped at: Completed 01-06-PLAN.md
+Last session: 2026-07-23T15:58:26.481Z
+Stopped at: Completed 01-07-PLAN.md - Phase 01 complete
 Resume file: None
