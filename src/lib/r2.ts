@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { HeadObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 // S3-compatible client pointed at Cloudflare R2 (RESEARCH.md Pattern 1).
@@ -25,4 +25,20 @@ export async function presignPhotoUpload(key: string, contentType: string): Prom
     ContentType: contentType,
   });
   return getSignedUrl(r2, command, { expiresIn: 60 });
+}
+
+// Enforces the product's core "only a real, live camera upload can become a
+// complaint" invariant (CLAUDE.md Constraints; SUBM-01) server-side.
+// `submitComplaint` must call this before inserting a row — the presign step
+// only ever *mints permission* to upload; it never proves the browser
+// actually completed the PUT. A `HeadObjectCommand` 404 (surfaced by the SDK
+// as a thrown error, not a boolean) means the object was never uploaded, so
+// callers cannot forge a `photoKey` that merely matches the regex shape.
+export async function photoExists(key: string): Promise<boolean> {
+  try {
+    await r2.send(new HeadObjectCommand({ Bucket: process.env.R2_BUCKET_NAME!, Key: key }));
+    return true;
+  } catch {
+    return false;
+  }
 }

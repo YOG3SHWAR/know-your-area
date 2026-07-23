@@ -6,6 +6,7 @@ import { getOrCreateDeviceId } from "@/lib/device-id";
 import { db } from "@/lib/db/client";
 import { complaints } from "@/lib/db/schema";
 import { generatePublicId } from "@/lib/ids";
+import { photoExists } from "@/lib/r2";
 import { submissionSchema, type SubmissionInput } from "@/types/complaint";
 
 const MAX_ID_ATTEMPTS = 5;
@@ -27,6 +28,18 @@ function isUniqueViolation(err: unknown): boolean {
 // empty table never depends on any existing row.
 export async function submitComplaint(input: SubmissionInput): Promise<{ publicId: string }> {
   const parsed = submissionSchema.parse(input);
+
+  // CR-01: `submissionSchema.photoKey` only checks the string *shape* via
+  // regex — it never proves the object was actually uploaded to R2. Without
+  // this check, any caller invoking this Server Action directly (bypassing
+  // CameraCapture/PermissionGate entirely) could forge a plausible-looking
+  // key and publish a "photo-verified" complaint with no real photo behind
+  // it. Reject up front with a clear validation error rather than letting a
+  // fake row reach the DB.
+  if (!(await photoExists(parsed.photoKey))) {
+    throw new Error("Photo not found — please retake and upload the photo before submitting.");
+  }
+
   const submitterId = await getOrCreateDeviceId();
 
   // Location is always read live from the browser's Geolocation API at
