@@ -5,18 +5,19 @@ import { useRouter } from "next/navigation";
 
 import { submitComplaint } from "@/actions/submit-complaint";
 import { CameraCapture } from "@/components/capture/CameraCapture";
+import { CategoryPicker } from "@/components/capture/CategoryPicker";
 import { PermissionGate } from "@/components/capture/PermissionGate";
 import { Button } from "@/components/ui/button";
 import { captureBestFix } from "@/lib/geolocation";
-import { CATEGORIES, type Category } from "@/types/complaint";
+import { type Category } from "@/types/complaint";
 
 // D-03/D-04: the whole flow is wrapped in PermissionGate (proactive
 // camera/location denial hard-block, RESEARCH.md Pitfall 5). The
 // captureBestFix wait-for-fix window (D-04) runs right before submit — if
 // no reading arrives in the window, the flow hard-blocks rather than
 // submitting a fabricated/default coordinate, matching the same treatment
-// as a denied permission. Full 5-category picker + server-side
-// re-validation lands in Plan 03 Task 3.
+// as a denied permission. `submitComplaint` re-validates `category` against
+// the 5-value enum server-side (SUBM-02) — the client is never trusted.
 type PublishPhase = "idle" | "locating" | "submitting";
 
 const NO_FIX_COPY =
@@ -96,26 +97,7 @@ export default function CapturePage() {
 
         <CameraCapture onCaptured={setPhotoKey} />
 
-        <div className="flex flex-col gap-2">
-          <p className="text-sm font-medium">What&apos;s the problem?</p>
-          <div className="flex flex-wrap gap-2">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.value}
-                type="button"
-                onClick={() => setCategory(c.value)}
-                aria-pressed={category === c.value}
-                className={`rounded-full border px-3 py-2 text-sm ${
-                  category === c.value
-                    ? "border-amber-500 bg-amber-50 text-amber-900"
-                    : "border-input bg-zinc-100"
-                }`}
-              >
-                {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <CategoryPicker value={category} onChange={setCategory} />
 
         {error && <p className="text-sm text-destructive">{error}</p>}
 
