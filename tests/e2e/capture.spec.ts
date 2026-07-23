@@ -103,3 +103,63 @@ test("category picker renders uniform-width chips (G-01-4)", async ({ page }) =>
     expect(Math.abs(width - first)).toBeLessThanOrEqual(2);
   }
 });
+
+// G-01-3: on a browser whose Permissions API does not proactively report
+// `denied` up front (Safari never does for "camera"; every browser reports
+// "prompt" on a first visit), PermissionGate's proactive check alone cannot
+// catch the denial — the real getUserMedia/geolocation rejection must be
+// routed back into the same hard-block. These tests simulate that
+// "prompt"-then-reject sequence rather than the proactive "denied" state
+// already covered above.
+test("capture flow: camera denial via getUserMedia rejection escalates to hard-block (G-01-3)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.permissions.query = (async () => {
+      return { state: "prompt", onchange: null } as PermissionStatus;
+    }) as typeof navigator.permissions.query;
+
+    navigator.mediaDevices.getUserMedia = (async () => {
+      throw new DOMException("denied", "NotAllowedError");
+    }) as typeof navigator.mediaDevices.getUserMedia;
+  });
+
+  await page.goto("/capture");
+
+  await expect(page.getByTestId("permission-hard-block")).toContainText("Camera access is off");
+  await expect(page.getByRole("button", { name: "Capture Photo" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Publish Report" })).toHaveCount(0);
+});
+
+test("capture flow: location denial via geolocation code 1 escalates to hard-block (G-01-3)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    navigator.permissions.query = (async () => {
+      return { state: "prompt", onchange: null } as PermissionStatus;
+    }) as typeof navigator.permissions.query;
+
+    navigator.geolocation.watchPosition = ((
+      _success: PositionCallback,
+      error?: PositionErrorCallback | null,
+    ) => {
+      setTimeout(() => {
+        error?.({
+          code: 1,
+          message: "denied",
+          PERMISSION_DENIED: 1,
+          POSITION_UNAVAILABLE: 2,
+          TIMEOUT: 3,
+        } as GeolocationPositionError);
+      }, 0);
+      return 1;
+    }) as typeof navigator.geolocation.watchPosition;
+  });
+
+  await page.goto("/capture");
+
+  await page.getByRole("button", { name: "Pothole/Road damage" }).click();
+  await page.getByRole("button", { name: "Capture Photo" }).click();
+
+  await expect(page.getByTestId("permission-hard-block")).toContainText("Location access is off");
+});
