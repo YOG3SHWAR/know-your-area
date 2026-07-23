@@ -1,9 +1,9 @@
 ---
-status: partial
+status: diagnosed
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-23T11:19:17.443Z"
+updated: "2026-07-23T11:27:33.620Z"
 ---
 
 ## Current Test
@@ -74,11 +74,15 @@ blocked: 0
   reason: "User reported: chips not arranged properly — CategoryPicker.tsx uses flex-wrap sized to label text, so longer labels (Pothole/Road damage, Garbage/Sanitation) each occupy a full row alone while shorter ones pair up, producing an uneven/inconsistent wrap."
   severity: cosmetic
   test: 4
+  root_cause: "CategoryPicker.tsx renders chips in a flex flex-wrap container with intrinsic-width buttons (no fixed/grid-cell sizing). The 5 category labels span 14-22 characters, so flexbox's greedy line-packing produces uneven row groupings at mobile widths — expected CSS behavior, not a JS/state bug. 01-UI-SPEC.md constrains touch-target size and color states but has no grid/column layout contract for the picker (a spec gap, not a violation)."
   artifacts:
 
     - path: "src/components/capture/CategoryPicker.tsx"
-      issue: "flex-wrap layout produces inconsistent row grouping across the 5 chips"
-  missing: []
+      issue: "flex-wrap container with intrinsic-width chip buttons has no grid/fixed-cell constraint, causing uneven row packing when label lengths vary"
+  missing:
+
+    - "Replace the flex-wrap layout with a fixed grid (e.g. grid grid-cols-2 gap-2) so every chip occupies a uniform cell regardless of label length, keeping min-h-11 for the 44px touch target"
+  debug_session: ".planning/debug/category-chip-uneven-wrap.md"
 
 - gap_id: G-01-3
   truth: "On a real device, deny camera or location permission — the exact UI-SPEC hard-block copy appears with settings guidance and no submit path is reachable."
@@ -86,8 +90,18 @@ blocked: 0
   reason: "User reported: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission."
   severity: blocker
   test: 3
-  artifacts: []
-  missing: []
+  root_cause: "CameraCapture.tsx's own getUserMedia() catch handler sets error state to err.message and renders the raw browser NotAllowedError text directly, with no connection to PermissionGate's dedicated hard-block UI. PermissionGate additionally fails open (renders children unconditionally) when navigator.permissions.query is unsupported for a given name (documented Safari/WebKit gap) or when permission state is still 'prompt' at mount (any first-ever visit) — in both cases CameraCapture's own getUserMedia() is what actually triggers the native prompt, and its denial is handled independently of PermissionGate's hard-block state."
+  artifacts:
+
+    - path: "src/components/capture/CameraCapture.tsx"
+      issue: "getUserMedia() catch handler renders raw err.message directly in a <p> tag instead of triggering the shared hard-block UI"
+
+    - path: "src/components/capture/PermissionGate.tsx"
+      issue: "Proactive Permissions API check fails open when query is unsupported (Safari) or state is still 'prompt' at mount, letting CameraCapture render and independently trigger + handle the native prompt"
+  missing:
+
+    - "Route the getUserMedia()/getCurrentPosition() rejection in CameraCapture back through a shared callback/context keyed on err.name === 'NotAllowedError' so denial triggers PermissionGate's existing hard-block state instead of rendering err.message directly"
+  debug_session: ".planning/debug/permission-hard-block-not-shown.md"
 
 - gap_id: G-01-EXTRA-1
   truth: "The public feed loads real complaint data on normal page load (not just under a forced/simulated failure — see test 6)."
@@ -95,8 +109,17 @@ blocked: 0
   reason: "Ad-hoc finding during test 3: on https://know-your-area.vercel.app/ (production deploy) the home feed unconditionally shows 'Couldn't load reports. Check your connection and try again.' Confirmed via curl: GET /api/feed returns HTTP 500 {\"error\":\"Couldn't load reports.\"} on every request, not just intermittently. User confirms the feed loads fine on localhost, so this looks like a production-deployment/env-config issue (e.g. DB connection string, Supabase pause) rather than an application code bug. Server-side error is swallowed (console.error only) in src/app/api/feed/route.ts:36, so exact root cause is not yet known."
   severity: blocker
   test: ad-hoc
+  root_cause: "INCONCLUSIVE without Vercel function logs / production env dashboard access (both unavailable to the investigating agent). src/lib/db/client.ts instantiates postgres(requireEnv('DATABASE_URL')) with zero connection options (no ssl, no prepare, no pooler awareness) — the common root of the top 3 ranked hypotheses: (1) most plausible — Supabase's direct-connection host is IPv6-only while Vercel serverless functions lack IPv6 egress, so DATABASE_URL should use Supabase's pooler (Supavisor, port 6543) instead of the direct host; (2) missing explicit ssl config on the postgres.js client causes every TLS handshake to fail against Supabase; (3) if already pointed at a transaction-mode pooler, postgres.js's default prepared statements are incompatible with it and need { prepare: false }; (4) DATABASE_URL simply not set/scoped to Vercel's Production environment. Local success proves nothing about the connection layer since local Postgres is plaintext, unpooled, and IPv4-only — none of the properties a hosted Supabase instance has."
   artifacts:
 
+    - path: "src/lib/db/client.ts"
+      issue: "postgres.js client instantiated with no ssl/prepare/pooler-aware options — needs explicit config for Supabase's hosted-connection requirements rather than relying on connection-string defaults"
+
     - path: "src/app/api/feed/route.ts"
-      issue: "Catch-all 500 handler swallows the real error server-side; feed is unconditionally broken in production"
-  missing: []
+      issue: "catch-all swallows the real exception into a generic console.error, making the actual failure mode undiagnosable without Vercel log access — should log err.message/err.code even while still returning the generic user-facing message"
+  missing:
+
+    - "Check Vercel's function logs for the actual thrown error to disambiguate the ranked hypotheses"
+    - "Cross-reference the DATABASE_URL host/port in Vercel's Production env scope against Supabase's Direct vs Session Pooler vs Transaction Pooler connection strings"
+    - "Add explicit ssl and prepare:false options to the postgres.js client defensively, since they are correct regardless of which hypothesis is confirmed"
+  debug_session: ".planning/debug/production-feed-500.md"
