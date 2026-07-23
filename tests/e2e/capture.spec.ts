@@ -76,3 +76,30 @@ test("capture flow: denied location permission hard-blocks with no submission pa
   await expect(page.getByRole("button", { name: "Capture Photo" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Publish Report" })).toHaveCount(0);
 });
+
+// G-01-4: the category picker must render as a uniform grid — the previous
+// `flex flex-wrap` container sized each chip to its intrinsic label width,
+// so the longest label ("Pothole/Road damage") wrapped alone while shorter
+// labels paired up. A fixed 2-column grid gives every chip an equal-width
+// cell regardless of label length.
+test("category picker renders uniform-width chips (G-01-4)", async ({ page }) => {
+  await page.goto("/capture");
+
+  const grid = page.getByTestId("category-picker");
+  await expect(grid).toHaveCSS("display", "grid");
+
+  const buttons = grid.locator("button");
+  await expect(buttons).toHaveCount(5);
+
+  const widths: number[] = [];
+  for (const button of await buttons.all()) {
+    const box = await button.boundingBox();
+    if (!box) throw new Error("Expected category chip to have a bounding box");
+    widths.push(box.width);
+  }
+
+  const [first, ...rest] = widths;
+  for (const width of rest) {
+    expect(Math.abs(width - first)).toBeLessThanOrEqual(2);
+  }
+});
