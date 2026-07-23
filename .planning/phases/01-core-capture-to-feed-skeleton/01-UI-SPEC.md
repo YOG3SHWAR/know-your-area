@@ -1,7 +1,7 @@
 ---
 phase: 1
 slug: core-capture-to-feed-skeleton
-status: draft
+status: approved
 shadcn_initialized: false
 preset: "style=new-york, baseColor=neutral, cssVariables=true"
 created: 2026-07-23
@@ -93,6 +93,16 @@ No other element (links, icons, nav items, badges) uses the accent color — thi
 
 ---
 
+## Visual Hierarchy
+
+| Page | Primary focal point | Secondary | Tertiary |
+|------|---------------------|-----------|----------|
+| Capture | Live camera preview (fills viewport width, largest element on screen) | Shutter button ("Capture Photo", amber accent, 44px touch target, center-bottom) | Category picker, permission-denied blocks |
+| Feed | Feed card photo (full-width, burned-in geotag overlay) | Category badge and distance metadata | Timestamp, poster label |
+| Permalink (`/c/{id}`) | Full photo with overlay | Category, distance, timestamp metadata | Search-by-ID entry point, back-to-feed link |
+
+---
+
 ## Copywriting Contract
 
 | Element | Copy |
@@ -120,7 +130,7 @@ No other element (links, icons, nav items, badges) uses the accent color — thi
 
 ## UI Considerations
 
-Applicable state considerations resolved: 15 covered, 4 backstop, 1 unresolved
+Applicable state considerations resolved: 16 covered, 4 backstop, 0 unresolved
 
 | Category | Element(s) | Status | Resolution / Reason |
 |----------|------------|--------|---------------------|
@@ -146,7 +156,7 @@ Applicable state considerations resolved: 15 covered, 4 backstop, 1 unresolved
 | long-text | Permission-denied block screens (static-content) | ✅ covered | Guidance copy (Copywriting Contract) is short and fits mobile viewports without truncation |
 | error | Search-by-ID (form) | ✅ covered | "We couldn't find a report with that ID…" inline under the search box per Copywriting Contract; stays on page, no navigation on failure |
 | empty | Search-by-ID (form) | ⚪ dismissed | Single text input, not a collection — no empty-state concept beyond the placeholder copy |
-| long-text | Search-by-ID (interactive-control) | ⚠ unresolved | Behavior when pasted input exceeds expected ID length/format (e.g. user pastes a full permalink URL instead of the bare code) is not specified — planner should decide: reject as "not found," or best-effort extract the ID from a pasted `/c/{id}` URL. Flagged as an explicit assumption, not silently dropped. |
+| long-text | Search-by-ID (interactive-control) | ✅ covered | If pasted input matches a full permalink URL (`.../c/{id}`), best-effort extract the `{id}` segment and search using that instead of the raw pasted string; otherwise treat input as a literal ID and search as-is. |
 | error | Permalink page `/c/{id}` (static-content/media) | ✅ covered | Malformed/nonexistent ID renders a dedicated "This report doesn't exist…" state per Copywriting Contract, not a generic 500/crash |
 | loading | Permalink page photo (media) | ✅ covered | Same blur/placeholder pattern as feed card photo loading |
 | long-text | Permalink page (static-content) | ⚪ dismissed | No long-form text fields exist on this page in Phase 1 (comments/descriptions ship in Phase 5) |
@@ -173,11 +183,11 @@ No third-party registries were declared for this phase. All components come from
 
 ## Checker Sign-Off
 
-- [ ] Dimension 1 Copywriting: PASS
-- [ ] Dimension 2 Visuals: PASS
-- [ ] Dimension 3 Color: PASS
-- [ ] Dimension 4 Typography: PASS
-- [ ] Dimension 5 Spacing: PASS
-- [ ] Dimension 6 Registry Safety: PASS
+- [x] Dimension 1 Copywriting: PASS
+- [x] Dimension 2 Visuals: PASS (FLAG resolved — Visual Hierarchy section added)
+- [x] Dimension 3 Color: PASS
+- [x] Dimension 4 Typography: PASS
+- [x] Dimension 5 Spacing: PASS
+- [x] Dimension 6 Registry Safety: PASS
 
-**Approval:** pending
+**Approval:** approved
