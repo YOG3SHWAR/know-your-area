@@ -122,3 +122,12 @@ CR-01 is closed at the code level. Per the plan's scope note, the true driver wa
 ---
 *Phase: 01-core-capture-to-feed-skeleton*
 *Completed: 2026-07-25*
+
+## Self-Check: PASSED
+
+- FOUND: src/lib/overlay.ts
+- FOUND: tests/unit/overlay.test.ts
+- FOUND: .planning/phases/01-core-capture-to-feed-skeleton/01-08-SUMMARY.md
+- FOUND commit: 32fdd40 (test RED)
+- FOUND commit: 11282ec (fix GREEN)
+- FOUND commit: 68d6830 (docs summary)
