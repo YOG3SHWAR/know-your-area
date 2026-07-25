@@ -55,6 +55,17 @@ export function wrapOverlayLines(
   const words = text.split(" ");
   const lines: string[] = [];
   let current = "";
+  // Set when the loop exits via the OVERLAY_MAX_LINES break below — i.e. a
+  // break-truncation occurred and `current` (plus any words after it) will
+  // never be rendered. Residual CR-01: the old code appended that dangling
+  // `current` fragment via the post-loop `if (current) lines.push(current)`
+  // and then silently chopped it back off with `lines.length =
+  // OVERLAY_MAX_LINES`, discarding content (often the timestamp) with no
+  // visible signal. The fix below never appends a doomed fragment and
+  // instead always leaves a visible "…" on the last RETAINED line whenever
+  // content was cut, so truncation is never silent (D-02 anti-fraud
+  // completeness).
+  let truncated = false;
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
@@ -68,22 +79,31 @@ export function wrapOverlayLines(
     // pushed (i.e. a third line would start) — not the instant the final
     // allowed line begins accumulating, which previously discarded every
     // word after it (CR-01: silently dropped the burned-in timestamp).
-    if (lines.length >= OVERLAY_MAX_LINES) break;
+    if (lines.length >= OVERLAY_MAX_LINES) {
+      truncated = true;
+      break;
+    }
   }
-  if (current) lines.push(current);
-  if (lines.length > OVERLAY_MAX_LINES) lines.length = OVERLAY_MAX_LINES;
+  // Only append the dangling `current` fragment when the loop completed
+  // naturally (no break-truncation) — otherwise it belongs to a line that
+  // will never be shown, and the visible "…" signal below stands in for it
+  // instead of a silent drop.
+  if (!truncated && current) lines.push(current);
 
-  // Graceful truncation: if the last line still overflows the available
-  // width (e.g. a single very long accuracy string with no break points),
-  // ellipsize it rather than letting it spill past the canvas edge.
+  // Graceful truncation: ellipsize the last RETAINED line whenever a
+  // break-truncation happened above OR the line's own measured width still
+  // overflows the available space (e.g. a single very long accuracy string
+  // with no break points) — either path means content was or would be cut,
+  // and both must leave a visible "…" rather than a clean-looking but
+  // incomplete line.
   const lastIndex = lines.length - 1;
   const last = lines[lastIndex];
-  if (last && ctx.measureText(last).width > maxWidth) {
-    let truncated = last;
-    while (truncated.length > 1 && ctx.measureText(`${truncated}…`).width > maxWidth) {
-      truncated = truncated.slice(0, -1);
+  if (last && (truncated || ctx.measureText(last).width > maxWidth)) {
+    let ellipsized = last;
+    while (ellipsized.length > 1 && ctx.measureText(`${ellipsized}…`).width > maxWidth) {
+      ellipsized = ellipsized.slice(0, -1);
     }
-    lines[lastIndex] = `${truncated}…`;
+    lines[lastIndex] = `${ellipsized}…`;
   }
 
   return lines;

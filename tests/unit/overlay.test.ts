@@ -63,13 +63,49 @@ describe("wrapOverlayLines", () => {
     const lastLine = lines[lines.length - 1];
     expect(lastLine).toContain("14:03");
     expect(lastLine).toContain("2026");
+    // No truncation occurred here — the last line must not be forced to
+    // carry a spurious ellipsis (regression guard for the residual fix).
+    expect(lastLine.endsWith("…")).toBe(false);
   });
 
-  it("caps wrapped output at OVERLAY_MAX_LINES (2) even for longer text", () => {
+  it("never silently drops the timestamp for a long-accuracy 3+-line input (residual CR-01)", () => {
+    // ±123457m (a realistic poor/indoor/urban-canyon GPS fix) forces the
+    // formatted overlay text to require 3+ logical lines to wrap at this
+    // width. The old post-loop clamp appended-then-silently-discarded the
+    // dangling `current` fragment here, dropping "2026, 14:03" with no
+    // visible signal. This must fail against that behaviour and pass once
+    // a break-truncation always leaves a visible "…" on the last retained
+    // line.
+    const overlayText = "12.9716, 77.5946 · ±123457m · 23 Jul 2026, 14:03";
+    const lines = wrapOverlayLines(stubCtx(), overlayText, 20);
+
+    expect(lines.length).toBeLessThanOrEqual(2);
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(true);
+  });
+
+  it("caps wrapped output at OVERLAY_MAX_LINES (2) even for longer text, signaling truncation", () => {
     const text = "aaaa bbbb cccc dddd eeee ffff";
     const lines = wrapOverlayLines(stubCtx(), text, 9);
 
     expect(lines.length).toBeLessThanOrEqual(2);
+    // Content-based (not length-only): truncated content must leave a
+    // visible ellipsis marker on the last retained line.
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(true);
+  });
+
+  it("does not over-ellipsize output that wraps cleanly with no truncation", () => {
+    const text = "aaaa bbbb cccc dddd";
+    const lines = wrapOverlayLines(stubCtx(), text, 9);
+
+    expect(lines).toHaveLength(2);
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(false);
+    expect(lines.join(" ")).toContain("aaaa");
+    expect(lines.join(" ")).toContain("bbbb");
+    expect(lines.join(" ")).toContain("cccc");
+    expect(lines.join(" ")).toContain("dddd");
   });
 
   it("ellipsizes a single unbreakable word that overflows maxWidth", () => {
