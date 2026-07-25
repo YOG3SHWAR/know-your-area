@@ -1,9 +1,9 @@
 ---
-status: partial
+status: diagnosed
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-26T02:00:00Z"
+updated: "2026-07-26T02:30:00Z"
 ---
 
 ## Current Test
@@ -84,17 +84,32 @@ blocked: 0
   reason: "User reported: after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
   severity: major
   test: 9
-  artifacts: []
-  missing: []
+  root_cause: "CameraCapture.tsx has no render branch for the 'captured' status — the live getUserMedia MediaStream keeps playing in the <video> element unconditionally, and is only stopped on unmount (never after a successful capture). The captured frame is drawn to an off-screen, never-appended <canvas> purely to produce a Blob for upload via canvas.toBlob(), then discarded — it's never surfaced as a preview. The Capture button's label/disabled logic also doesn't distinguish 'captured' from 'ready', so nothing about the button changes either. This is also a design-contract gap: 01-UI-SPEC.md's Capture-screen state table never defines a post-capture confirmation/'populated' state, so the missing feedback was never actually specified."
+  artifacts:
+    - path: "src/components/capture/CameraCapture.tsx"
+      issue: "No status-conditional render branch for 'captured'; live stream never stopped after capture; drawn canvas frame discarded instead of shown as a preview; button label doesn't reflect capture success"
+    - path: ".planning/phases/01-core-capture-to-feed-skeleton/01-UI-SPEC.md"
+      issue: "Capture screen state table has no defined post-capture confirmation state (spec gap feeding the implementation gap)"
+  missing:
+    - "On reaching 'captured' status, stop the live stream's tracks and swap the <video> for a static preview (e.g. the already-drawn canvas via toDataURL()/an <img>, or a frozen video frame) so the user gets clear visual confirmation before the category picker / Publish step"
+    - "Give captureLabel a distinct state for 'captured' (e.g. \"Photo captured — Retake?\") so the button itself signals success"
+    - "Add a 01-UI-SPEC.md state-table entry for this post-capture 'populated' state to close the design-contract gap"
+  debug_session: ".planning/debug/capture-preview-not-shown-after-photo.md"
 
 - gap_id: G-01-EXTRA-2
   truth: "The home/feed page loads via server rendering as designed, without falling back to client-side rendering due to a module resolution error."
-  status: failed
+  status: diagnosed_no_code_fix
   reason: "Ad-hoc finding during test 9: home page shows a Next.js Recoverable Error — \"Switched to client rendering because the server rendering errored: __webpack_modules__[moduleId] is not a function\" (Next.js 15.5.21, Webpack)."
   severity: blocker
   test: ad-hoc
-  artifacts: []
-  missing: []
+  root_cause: "NOT an application bug — a transient Next.js dev-mode webpack module-registry desync (a known, documented Next.js dev-tooling issue class: vercel/next.js #23683, #31015). The local `next dev` (webpack, non-turbopack) process had been running continuously for hours across many incremental Fast-Refresh/HMR recompiles without a full restart, so the in-memory module-id-to-factory map went stale, and an SSR render pass landed mid/right-after a recompile, causing __webpack_modules__[moduleId] to resolve undefined. Confirmed non-deterministic: 5 consecutive curl requests to the same running dev server all returned HTTP 200 with correctly-rendered feed HTML. No version mismatches (single deduped react/react-dom/next across the tree), no next/dynamic usage, no circular imports in the render path (src/app/page.tsx -> FeedContent -> src/lib/feed.ts -> src/lib/db/client.ts)."
+  artifacts:
+    - path: "src/app/page.tsx"
+      issue: "Contributing (not root-cause) factor only: <Suspense key={...}> combined with LocationRequester's post-geolocation router.replace() triggers at least two dynamic SSR passes per page visit, increasing the odds a request lands mid-recompile in dev mode. Not a defect in a clean restart or production build."
+  missing:
+    - "No code fix required. Restart the local Next.js dev server (kill the process, optionally rm -rf .next) and reload the home page several times to confirm the Recoverable Error does not recur."
+    - "If it recurs reliably even after a clean restart, or reproduces in a production build (next build && next start), re-open as a new gap for deeper investigation — that would falsify the dev-session-staleness diagnosis."
+  debug_session: ".planning/debug/home-feed-ssr-webpack-module-error.md"
 
 - gap_id: G-01-4
   truth: "The 5-category picker shows amber-selected chips at 44px touch targets, comfortably tappable."
