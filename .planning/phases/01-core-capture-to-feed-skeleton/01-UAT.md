@@ -1,20 +1,14 @@
 ---
-status: testing
+status: partial
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-26T01:40:00Z"
+updated: "2026-07-26T02:00:00Z"
 ---
 
 ## Current Test
 
-number: 2
-name: Real iOS Safari: photo orientation and overlay legibility
-expected: |
-  Capture a photo in portrait orientation on real iOS Safari — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio. Now that the residual CR-01 truncation gap is closed (plan 01-09), also confirm a visible "…" appears if the overlay wraps past 2 lines on a narrow real device — never a silently-clean-looking-but-incomplete line.
-awaiting: user response
-
-[testing resumed after gap-closure plans 01-05..01-09 — 3 items outstanding: tests 2, 5, and a new double-tap concurrency test below]
+[testing paused — 2 items outstanding: tests 2 and 5 remain skipped with no reason recorded]
 
 ## Tests
 
@@ -68,20 +62,39 @@ result: pass
 ### 9. Rapid double-tap Publish cannot create two complaints
 
 expected: On the /capture page, after a photo is captured and a category chosen, tap "Publish Report" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op.
-result: pending
-why_pending: "Carried forward from phase 01-VERIFICATION.md's behavior_unverified_items: the guard (`if (!photoKey || !category || publishPhase !== \"idle\") return;` in src/app/capture/page.tsx:37) is present and correct by construction, but no concurrency/race test (unit or e2e) exercises two near-simultaneous clicks — a state-transition/ordering invariant that static code reading cannot prove holds under real double-tap timing."
+result: issue
+reported: "after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
+severity: major
 
 ## Summary
 
 total: 9
 passed: 4
 resolved: 2
-issues: 0
-pending: 1
+issues: 1
+pending: 0
 skipped: 2
 blocked: 0
 
 ## Gaps
+
+- gap_id: G-01-9
+  truth: "On the /capture page, after a photo is captured and a category chosen, tap \"Publish Report\" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op."
+  status: failed
+  reason: "User reported: after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
+  severity: major
+  test: 9
+  artifacts: []
+  missing: []
+
+- gap_id: G-01-EXTRA-2
+  truth: "The home/feed page loads via server rendering as designed, without falling back to client-side rendering due to a module resolution error."
+  status: failed
+  reason: "Ad-hoc finding during test 9: home page shows a Next.js Recoverable Error — \"Switched to client rendering because the server rendering errored: __webpack_modules__[moduleId] is not a function\" (Next.js 15.5.21, Webpack)."
+  severity: blocker
+  test: ad-hoc
+  artifacts: []
+  missing: []
 
 - gap_id: G-01-4
   truth: "The 5-category picker shows amber-selected chips at 44px touch targets, comfortably tappable."
