@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-08-PLAN.md - CR-01 gap closure complete
-last_updated: "2026-07-25T18:58:58.668Z"
+stopped_at: Completed 01-09-PLAN.md - residual CR-01 gap closure complete
+last_updated: "2026-07-25T19:48:39.702Z"
 last_activity: 2026-07-26
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 8
-  completed_plans: 8
+  total_plans: 9
+  completed_plans: 9
 ---
 
 # Project State
@@ -28,7 +28,7 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 2 of 8
+Plan: 2 of 9
 Status: Ready to execute
 Last activity: 2026-07-26 — Phase 01 execution started
 
@@ -66,6 +66,7 @@ Progress: [██████████] 100%
 | Phase 01 P06 | 15min | 2 tasks | 4 files |
 | Phase 01 P07 | 5min | 1 tasks | 0 files |
 | Phase 01 P08 | 8min | 1 tasks | 2 files |
+| Phase 01 P09 | 10min | 1 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,7 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-06: feed route logs err.name/err.message/err.code as three separate console.error args (not a single object) for a shape-agnostic test assertion
 - [Phase ?]: 01-07: Production feed 500 root cause resolved via Vercel DATABASE_URL/Supabase pooler config + redeploy; exact hypothesis confirmed not specified by user beyond general pooler-config framing, recorded as reported.
 - [Phase ?]: 01-08: Fixed wrapOverlayLines break condition (=== to >=) and exported it for direct unit testing, closing the CR-01 timestamp-drop gap without touching formatOverlayText/drawOverlay signatures
+- [Phase ?]: 01-09: Skip post-loop append of the dangling wrap fragment on break-truncation instead of push-then-clamp; broaden ellipsis condition to (truncated || measured-width overflow) so a break-triggered truncation always leaves a visible ellipsis on the last retained overlay line (residual CR-01 closed)
 
 ### Pending Todos
 
@@ -117,6 +119,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-25T18:58:58.661Z
-Stopped at: Completed 01-08-PLAN.md - CR-01 gap closure complete
+Last session: 2026-07-25T19:48:39.695Z
+Stopped at: Completed 01-09-PLAN.md - residual CR-01 gap closure complete
 Resume file: None
