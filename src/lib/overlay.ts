@@ -47,7 +47,7 @@ export function formatOverlayText(
 const OVERLAY_PADDING_PX = 12;
 const OVERLAY_MAX_LINES = 2;
 
-function wrapOverlayLines(
+export function wrapOverlayLines(
   ctx: CanvasRenderingContext2D,
   text: string,
   maxWidth: number,
@@ -64,7 +64,11 @@ function wrapOverlayLines(
     }
     lines.push(current);
     current = word;
-    if (lines.length === OVERLAY_MAX_LINES - 1) break;
+    // Stop only once OVERLAY_MAX_LINES full lines have actually been
+    // pushed (i.e. a third line would start) — not the instant the final
+    // allowed line begins accumulating, which previously discarded every
+    // word after it (CR-01: silently dropped the burned-in timestamp).
+    if (lines.length >= OVERLAY_MAX_LINES) break;
   }
   if (current) lines.push(current);
   if (lines.length > OVERLAY_MAX_LINES) lines.length = OVERLAY_MAX_LINES;
