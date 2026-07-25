@@ -21,3 +21,9 @@
 | multipart upload | OPT-OUT | not needed — a single compressed camera photo is well under the single-PUT ceiling; multipart adds no value at this size. |
 | lifecycle / retention rules | OPT-OUT | not needed yet — retention/expiry policy is a Phase 6 compliance concern (IT Rules), not MVP skeleton. |
 | bucket create/delete (control plane) | OPT-OUT | explicitly out of scope — the bucket is provisioned once by a human via `user_setup`, never managed by app code. |
+
+---
+
+## Gap Closure — Round 3 (plan 01-09)
+
+No external API integration: this round is a pure client-side canvas text-wrapping bugfix in an already-shipped function (`wrapOverlayLines` in `src/lib/overlay.ts`) plus unit-test hardening (`tests/unit/overlay.test.ts`) — no new API/SDK/service is touched, so the R2 capability matrix above is unchanged and no new coverage decision is required.

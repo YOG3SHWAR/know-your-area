@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone.
   4. Each complaint has a unique, opaque ID and can be opened directly via search-by-ID or its permalink URL.
 
-**Plans**: 8/8 plans executed
+**Plans**: 9 plans (8 executed; 01-09 gap-closure Round 3 pending)
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Project scaffold, PostGIS data layer + shared type contract, opaque IDs, test harness (Wave 1)
@@ -58,6 +58,10 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Gap Closure — Round 2** *(from 01-VERIFICATION.md re-verification — CR-01 blocker, overlay word-wrap drops burned-in timestamp)*
 
 - [x] 01-08-PLAN.md — Overlay fix: correct wrapOverlayLines break condition so the burned-in timestamp is retained (D-02) + add missing wrapOverlayLines unit coverage (CR-01) (Gap Wave 1)
+
+**Gap Closure — Round 3** *(from 01-VERIFICATION.md re-verification — residual CR-01: wrapOverlayLines silently drops the burned-in timestamp when overlay text needs 3+ wrap lines)*
+
+- [ ] 01-09-PLAN.md — Overlay truncation fix: a break-triggered wrap-truncation always leaves a visible "…" signal instead of silently dropping trailing content (D-02) + content-based (not length-only) unit assertions (Gap Wave 1)
 
 **UI hint**: yes
 
