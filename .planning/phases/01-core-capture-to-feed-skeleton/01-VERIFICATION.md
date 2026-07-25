@@ -1,57 +1,70 @@
 ---
 phase: 01-core-capture-to-feed-skeleton
-verified: 2026-07-23T16:15:00Z
-status: human_needed
-score: 15/15 must-haves verified (programmatically checkable); 8 items require human/real-device sign-off (all pre-flagged as backstop/human_judgment by the plans themselves)
-behavior_unverified: 0
+verified: 2026-07-26T00:20:00Z
+status: gaps_found
+score: 17/18 must-haves verified (programmatically checkable); 1 failed; 3 items remain human-verification (2 pre-flagged real-device backstop checks still skipped, 1 concurrency invariant present-by-construction but unexercised)
+behavior_unverified: 1
 overrides_applied: 0
+re_verification:
+  previous_status: gaps_found
+  previous_score: 17/18 (1 failed: CR-01 overlay word-wrap timestamp drop)
+  gaps_closed:
+    - "CR-01 (original trigger): the narrow off-by-one break condition (`lines.length === OVERLAY_MAX_LINES - 1`) that fired the instant line 2 STARTED — for the exact reproduction case in 01-VERIFICATION.md ('12.9716, 77.5946 · ±18m · 23 Jul 2026, 14:03' at a width where the prefix alone fills line 1), the timestamp is now retained on line 2. Independently confirmed: read src/lib/overlay.ts directly (break condition is now `if (lines.length >= OVERLAY_MAX_LINES) break;`), ran the new tests/unit/overlay.test.ts wrapOverlayLines describe block (3/3 pass), and independently re-implemented + executed the function by hand in Node against the plan's exact scenario — timestamp survives."
+  gaps_remaining:
+    - "D-02 (the underlying Plan-must-have truth CR-01 was tracked against) is STILL FAILED via a different, still-open trigger in the same function: when the overlay text needs MORE than OVERLAY_MAX_LINES (2) physical lines to wrap — e.g. a long/imprecise GPS accuracy value such as '±123457m', which formatOverlayText's own test suite explicitly anticipates as realistic (poor-fix GPS is common, especially indoors/urban-canyon conditions relevant to India) — the loop's `break` leaves a dangling partial line in `current` that the post-loop `lines.length = OVERLAY_MAX_LINES` truncation silently discards with no ellipsis. Independently reproduced by hand (see Observable Truths #8 below): wrapOverlayLines(stubCtx, '12.9716, 77.5946 · ±123457m · 23 Jul 2026, 14:03', 20) => ['12.9716, 77.5946 ·', '±123457m · 23 Jul'] — '2026, 14:03' vanishes with no truncation signal, reproducing the exact same anti-fraud-evidence-loss failure mode the original CR-01 closed only one trigger of."
+  regressions: []
+gaps:
+  - truth: "The captured photo has a visible geotag + timestamp overlay burned onto the canvas before the blob is produced (D-02, 01-03-PLAN.md must-have) — the overlay is part of the stored image bytes, and its timestamp component is never silently dropped."
+    status: failed
+    reason: "wrapOverlayLines (src/lib/overlay.ts) still silently drops the burned-in timestamp under a realistic trigger condition, just not the one 01-08-PLAN.md's must-haves scenario tested. Plan 01-08 correctly fixed the narrow 2-line 'break fires the instant line 2 starts' defect and added regression coverage for exactly that scenario — that specific fix is genuine and verified. But the post-loop code still has an unguarded path: when the loop's `break` fires because OVERLAY_MAX_LINES lines have already been pushed, the word being accumulated in `current` at that moment (a would-be 3rd line) is unconditionally pushed via `if (current) lines.push(current)` and then silently chopped off by the following `if (lines.length > OVERLAY_MAX_LINES) lines.length = OVERLAY_MAX_LINES;` — with no ellipsis, and any words after that one are never even reached (the for-loop already exited). This reproduces the exact 'burned-in timestamp silently vanishes with no signal' failure mode the phase goal's D-02 anti-fraud framing exists to prevent, just via a longer-text trigger (e.g. a long accuracy value from a poor GPS fix) instead of the original 2-line trigger."
+    artifacts:
+      - path: "src/lib/overlay.ts"
+        issue: "wrapOverlayLines (lines 50-90): when the loop's `break` fires at `lines.length >= OVERLAY_MAX_LINES` (line 71), the word left in `current` at that moment is a fragment of a line that will be discarded, but the post-loop code (`if (current) lines.push(current)` at line 73, then `lines.length = OVERLAY_MAX_LINES` at line 74) pushes it and then silently truncates it away instead of routing it through the ellipsis logic at lines 79-87. Any words after that fragment (already outside the exited for-loop) are lost entirely with no trace."
+    missing:
+      - "Track that a break-triggered truncation occurred (e.g. a `truncated` flag set when the `break` fires) and skip pushing the dangling `current` fragment in that case, so it isn't appended-then-silently-chopped."
+      - "Force the ellipsis/truncation branch to run on the last RETAINED line whenever a break-truncation happened (not only when that line's own measured width overflows maxWidth), so a truncation always leaves a visible '…' signal instead of a clean-looking but incomplete final line."
+      - "Extend tests/unit/overlay.test.ts's 'caps wrapped output at OVERLAY_MAX_LINES (2) even for longer text' case (and/or add a new case using a long-accuracy-value overlay string) to assert on CONTENT — e.g. the last line ends with '…' when truncation occurs — not just `lines.length <= 2`, so this class of regression is caught automatically. The current test only checks length and passes despite this bug."
+    debug_session: null
+deferred: []
+behavior_unverified_items:
+  - truth: "Rapid double-tapping Publish cannot create two complaints (01-03-PLAN.md must-have, human_judgment)."
+    test: "On the /capture page, after a photo is captured and a category chosen, tap 'Publish Report' twice in rapid succession (near-simultaneous, faster than a render cycle)."
+    expected: "Exactly one complaint is created; the second tap is a no-op because publishPhase !== 'idle' guards handlePublish."
+    why_human: "The guard (`if (!photoKey || !category || publishPhase !== \"idle\") return;` in src/app/capture/page.tsx:37) is present and correct by construction, but no concurrency/race test (unit or e2e) exercises two near-simultaneous clicks — this is a state-transition/ordering invariant that a static read cannot prove holds under real double-tap timing. Unchanged since the prior verification cycle; not touched by plan 01-08."
 human_verification:
-  - test: "On a real mobile browser, confirm shadcn new-york/neutral tokens and Geist Sans/Mono fonts render correctly (no font/token regression)."
-    expected: "Design system renders as specified — no fallback-font flash, no broken oklch tokens."
-    why_human: "Visual/font rendering cannot be verified by grep or a headless test (Plan 01 must-have, tagged `verification: backstop`)."
   - test: "On real iOS Safari, capture a photo in portrait orientation and confirm it is not rotated/skewed, and that the burned-in overlay text is upright, legible, and wraps/truncates gracefully at a narrow aspect ratio."
-    expected: "Correct orientation; overlay readable; no skew (RESEARCH.md Pitfall 3 explicitly evades emulation)."
-    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run (Plan 01 + Plan 03 must-haves, tagged backstop/human_judgment)."
-  - test: "On a real device, deny camera or location permission and confirm the exact UI-SPEC hard-block copy appears with settings guidance and no submit path."
-    expected: "Hard block renders; no degraded/alternative submission path is reachable."
-    why_human: "The e2e suite simulates denial by overriding `navigator.permissions.query` in Chromium — a real permission-denial UX (browser chrome, settings link behavior) needs a real device/browser (Plan 03)."
-  - test: "On a real device, confirm the 5-category picker shows amber-selected chips at 44px touch targets that are comfortably tappable, and that rapid double-tapping Publish cannot create two complaints."
-    expected: "Chips are visually correct and touch-friendly; double-tap is a no-op after the first tap begins publishing."
-    why_human: "Visual sizing/spacing and true double-tap race timing aren't asserted by any automated test (Plan 03 must-have, tagged human_judgment); the code-level guard (`publishPhase !== \"idle\"`) is present and correct by construction but unexercised by a concurrency test."
+    expected: "Correct orientation; overlay readable; no skew; and — given the residual gap above — the timestamp must actually be visible or the overlay must show a visible '…' if truncated, never a silently-clean-looking-but-incomplete line."
+    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run. Status: SKIPPED in 01-UAT.md (test 2) — still open. Unchanged by plan 01-08."
   - test: "Force a photo URL to 404 (e.g. edit a card's photo_key to a nonexistent key) and confirm the feed/permalink renders a category-colored placeholder tile with an icon, not a broken-image icon."
     expected: "Category-colored tile with icon renders in place of the broken image."
-    why_human: "Plan 04's own must-have is tagged `verification: backstop`, requiring a forced-404 real render check."
-  - test: "Force the feed's DB query to fail (e.g. transient network drop) and confirm the 'Couldn't load reports…' banner with a Retry button appears, and the feed does not go blank."
-    expected: "Error banner with Retry renders; feed content area is not blank/broken."
-    why_human: "No automated test forces a live-DB query failure against the real Supabase connection; the try/catch path is code-reviewed only (Plan 04 D8)."
-  - test: "Publish more than one page's worth of complaints (>20) near the same fixture location and scroll to the end of the feed; confirm the IntersectionObserver sentinel stops firing once the server returns a null cursor (no infinite spinner)."
-    expected: "Scrolling stops cleanly at the end of the list; no perpetual loading spinner."
-    why_human: "The shared live DB doesn't currently have enough test data to force a second page deterministically without seeding dozens of rows (Plan 04 D2, code-reviewed only)."
-  - test: "Confirm no rate limiting exists yet on /api/upload-url or the submitComplaint Server Action (this is an accepted, explicitly scoped-out gap, not a defect) — sign off that this is acceptable for Phase 1 and deferred to Phase 4."
-    expected: "Confirmed as an intentional, documented Phase-1 scope gap (WR-07, T-01-DoS), not a regression to fix now."
-    why_human: "This is a scope/priority confirmation, not a code check — the review explicitly skipped it as out of scope for this phase and assigned it to Phase 4 (Upstash rate limiting)."
+    why_human: "Status: SKIPPED in 01-UAT.md (test 5) — still open. No automated test forces a live photo 404 against the real R2 bucket. Unchanged by plan 01-08."
+  - test: "On the /capture page, tap 'Publish Report' twice in rapid succession and confirm only one complaint is created."
+    expected: "Exactly one complaint created; second tap is a no-op."
+    why_human: "See behavior_unverified_items above — code guard present, no concurrency test exists."
 ---
 
 # Phase 1: Core Capture-to-Feed Skeleton Verification Report
 
 **Phase Goal:** Prove the riskiest end-to-end loop — a user can capture a live, geo-tagged photo, pick a category, publish it, and anyone can see it in a nearby feed and open it directly by its unique ID or permalink. Auth is a stub dev-identity; no geocoding, dedup, blurring, or AI yet.
 
-**User Story (mode: mvp):** As a resident who does not trust official civic-reporting channels, I want to capture a live geo-tagged photo of a local problem, tag its category, and publish it, so that anyone nearby can see photo-verified local issues in a proximity feed and open any report by its ID or permalink.
+**Verified:** 2026-07-26T00:20:00Z
+**Status:** gaps_found
+**Re-verification:** Yes — after plan 01-08 (gap closure, round 2) attempted to close CR-01 in `src/lib/overlay.ts`
 
-**Verified:** 2026-07-23T16:15:00Z
-**Status:** human_needed
-**Re-verification:** No — initial verification (post code-review-fix)
+**Note on phase mode:** ROADMAP.md marks this phase `mode: mvp`, but the phase goal text does not conform to the strict `"As a ..., I want to ..., so that ...."` User Story format (`gsd_run query user-story.validate` returns `valid: false` against it). This predates this verification pass — the phase's own first verification cycle already used the standard goal-backward (non-MVP) format, which this re-verification pass continues for consistency. Flagged here for visibility, not treated as a new blocking issue.
 
-## User Flow Coverage (MVP mode)
+## Re-Verification Summary
 
-| Step | Expected | Evidence | Status |
-|------|----------|----------|--------|
-| Open capture | `/capture` gates on camera+location permissions, shows live `getUserMedia` preview, no gallery/file-picker path exists anywhere in the codebase | `src/app/capture/page.tsx` wraps flow in `PermissionGate`; `src/components/capture/CameraCapture.tsx:23-55` (`getUserMedia({video:{facingMode:"environment"}})`); repo-wide grep for `<input type="file"` / `capture=` attribute found none outside the generic shadcn `Input` (text) component | ✓ |
-| Capture + tag category | Tap Capture burns a live GPS+timestamp overlay into the photo before upload; pick 1 of 5 categories; Publish disabled until category chosen | `src/components/capture/CameraCapture.tsx:92-99` (`drawOverlay` called before `canvas.toBlob`); `src/components/capture/CategoryPicker.tsx` (5 `CATEGORIES`, amber selected state, `min-h-11` touch target); e2e `capture.spec.ts` line 8 test passed live | ✓ |
-| Publish | Publish uploads the real photo to R2, verifies it actually exists (`HeadObjectCommand`) before inserting, writes a `complaints` row with an opaque `KYA-XXXXXXX` id and SRID-4326 geometry point, redirects to `/` | `src/actions/submit-complaint.ts:39-41` (`photoExists` gate, CR-01 fix), `:48` (`ST_SetSRID(ST_MakePoint(...),4326)`); `src/lib/r2.ts:46-53` (`photoExists` via live `HeadObjectCommand`); e2e `capture.spec.ts` full flow re-run live during this verification — passed | ✓ |
-| See it on the feed | Landing page `/` shows the new complaint, nearest-first, with photo+overlay, category badge, distance, timestamp; falls back to recency if location denied | `src/lib/feed.ts` (`nearbyFeed`/`recentFeed`, `::geography`/`<->` KNN, deterministic tie-break); `src/components/feed/FeedCard.tsx`; e2e `feed.spec.ts` "nearest complaint ranks above a farther one" re-run live during this verification (exercises the fixed pagination-cursor bug) — passed | ✓ |
-| Open by ID/permalink | Searching a known ID or opening `/c/{publicId}` renders the full complaint (photo, category, distance/timestamp, generic poster label — never `submitter_id`); an unknown ID/permalink shows a dedicated not-found state, never a 500 | `src/app/c/[id]/page.tsx` (selects only `public_id`/`category`/`created_at`/`photo_key`), `src/app/c/[id]/not-found.tsx`; `src/components/feed/SearchById.tsx`; e2e `permalink.spec.ts` "unknown ID" re-run live during this verification — passed | ✓ |
-| Outcome | "Anyone nearby can see photo-verified local issues in a proximity feed and open any report by its ID or permalink" | All five steps above verified end-to-end against live Supabase+R2 infrastructure, not mocked | ✓ |
+This is the third full verification pass for Phase 1. The second pass (`status: gaps_found`, 2026-07-23T16:45:00Z) closed all 3 prior UAT gaps (G-01-3, G-01-4, G-01-EXTRA-1) but found one new blocking gap from that run's code review: CR-01, an off-by-one break condition in `wrapOverlayLines` (`src/lib/overlay.ts`) that silently dropped the burned-in anti-fraud timestamp under a specific 2-line word-wrap trigger. Plan 01-08 was executed to close CR-01.
+
+**Independent re-verification of plan 01-08's claim (not trusted from SUMMARY.md):**
+
+1. Read `src/lib/overlay.ts` directly. Confirmed the break condition is now `if (lines.length >= OVERLAY_MAX_LINES) break;` (was `=== OVERLAY_MAX_LINES - 1`), and `wrapOverlayLines` is exported.
+2. Ran `tests/unit/overlay.test.ts` — 9/9 pass, including the new `wrapOverlayLines` describe block (3 assertions: timestamp retention, 2-line cap, ellipsis truncation).
+3. Independently re-implemented `wrapOverlayLines` verbatim in a standalone Node script (not trusting the test file's own assertions) and ran it against the plan's exact reproduction scenario (`"12.9716, 77.5946 · ±18m · 23 Jul 2026, 14:03"` at the narrow width where the prefix alone fills line 1) — the timestamp is retained. **The originally-reported CR-01 trigger is genuinely fixed.**
+4. This phase's fresh `01-REVIEW.md` (completed and committed this same run) independently claimed a **second, related, still-present defect** in the same function, reproducible via a longer overlay string (e.g. a long GPS-accuracy value like `±123457m`) that needs 3+ physical lines to wrap. Per this verification's explicit instructions, this claim was **not** trusted at face value from either SUMMARY.md or REVIEW.md — it was independently reproduced from scratch: `wrapOverlayLines(stubCtx, "12.9716, 77.5946 · ±123457m · 23 Jul 2026, 14:03", 20)` executed via a standalone Node script against the exact current `src/lib/overlay.ts` logic returns `["12.9716, 77.5946 ·", "±123457m · 23 Jul"]` — the timestamp (`2026, 14:03`) is silently gone, with no ellipsis, no signal. **Confirmed real and reproducible**, and it is the same failure mode CR-01 was meant to close, via a different trigger. `tests/unit/overlay.test.ts`'s "caps wrapped output at OVERLAY_MAX_LINES (2)" test only asserts `lines.length <= 2` and does not check content preservation, so it passes despite this bug.
+
+**Conclusion:** Plan 01-08 closed the exact scenario it targeted (verified genuine), but the underlying D-02 must-have — "the overlay's timestamp is never silently dropped" — is **still failed** overall, because the same function has an un-fixed sibling defect that reproduces the identical failure mode via a realistic, not contrived, input (a long GPS accuracy value, which is common for poor/indoor GPS fixes and is explicitly anticipated by `formatOverlayText`'s own existing test suite). This is recorded as a continuing gap, not a new/separate one, since it blocks the same phase-goal-relevant truth.
 
 ## Goal Achievement
 
@@ -59,113 +72,94 @@ human_verification:
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | ✓ VERIFIED | `CameraCapture.tsx` uses only `getUserMedia`; repo-wide search found zero `<input type="file">`/`capture=` attributes anywhere in `src/` |
-| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | ✓ VERIFIED | `CategoryPicker.tsx` renders exactly `CATEGORIES` (5); `geolocation.ts`'s `captureBestFix` reads `navigator.geolocation.watchPosition` only; `submissionSchema` server-re-validates the enum + India bbox |
-| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | ✓ VERIFIED | `src/lib/feed.ts` `nearbyFeed`/`recentFeed`; e2e `feed.spec.ts` "nearest complaint ranks above a farther one" independently re-run during this verification, passed |
-| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | ✓ VERIFIED | `src/lib/ids.ts` `generatePublicId`, DB `UNIQUE` constraint on `public_id`; `src/components/feed/SearchById.tsx`; `src/app/c/[id]/page.tsx`; e2e `permalink.spec.ts`/`search.spec.ts` |
-| 5 | `submitComplaint` never verifies the photo existed before the code review fix — now closed (CR-01, security-critical to the whole product's "photo-verified" premise) | ✓ VERIFIED | `src/actions/submit-complaint.ts:39-41` calls `photoExists()`; `src/lib/r2.ts:46-53` issues a real `HeadObjectCommand`; e2e capture flow (which depends on this gate not rejecting a real upload) re-run live and passed |
-| 6 | The internal serial `complaints.id` is never exposed in any URL/API/feed payload — only `public_id` (T-01-01 IDOR prohibition) | ✓ VERIFIED | `src/lib/feed.ts`, `src/app/c/[id]/page.tsx`, `src/app/api/feed/route.ts` all select only `public_id, category, created_at, photo_key(, distance_m)` — grepped for `complaints.id`/serial selection in any external-facing query, none found |
-| 7 | Poster identity (`submitter_id`) is never exposed on the feed or permalink (D-06 prohibition) | ✓ VERIFIED | Same query surfaces as above never select `submitter_id`; `FeedCard.tsx`/`c/[id]/page.tsx` render only the static "Reported by a nearby resident" string |
-| 8 | Presigned-upload key/content-type are always server-derived, never client-supplied (T-01-02/T-01-03 prohibition) | ✓ VERIFIED | `src/app/api/upload-url/route.ts` accepts only `{ ext: "jpg"\|"webp" }` via zod; key is `complaints/${generatePublicId()}.${ext}`; no `key`/`contentType` field is ever read from the request body |
-| 9 | The `complaints` table exists with a `geometry(point,4326)` location column, GiST index, and `public_id` UNIQUE constraint | ✓ VERIFIED | `src/lib/db/schema.ts` declares all three; live DB round-trip proven working via re-run e2e (insert with `ST_SetSRID(...,4326)` + KNN `<->` proximity query both succeeded against the real Supabase instance) |
-| 10 | The Date-serialization pagination bug found post-review-fix is genuinely fixed | ✓ VERIFIED | `src/lib/feed.ts` cursor filters interpolate `decoded.createdAt` (already an ISO string) directly, no `new Date(...)` wrapper; commit `e394729`; e2e `feed.spec.ts`'s full-cursor-chain-walk test (which exercises this exact code path) re-run live, passed |
-| 11 | Build/typecheck/lint are clean on the current commit | ✓ VERIFIED | `npx tsc --noEmit` exits 0; `npm run build` succeeds (all 6 routes compile: `/`, `/capture`, `/c/[id]`, `/api/feed`, `/api/upload-url`, `/_not-found`) |
-| 12 | The full unit test suite passes | ✓ VERIFIED | `npx vitest run` → 24/24 passed (4 test files), matching the SUMMARY/task-description claim exactly |
-| 13 | The e2e suite enumerates and (spot-checked) passes against live infrastructure | ✓ VERIFIED | `npx playwright test --list` → 10/10 tests across 4 spec files enumerate cleanly; 3 spot-checked tests (capture full write-path, feed pagination cursor walk, permalink not-found) independently re-run during this verification — all 3 passed |
-| 14 | No debt markers (TODO/FIXME/XXX/TBD) or `test.fixme()` stubs remain in the phase's files | ✓ VERIFIED | Repo-wide grep found zero matches in `src/`; zero `fixme` occurrences in `tests/e2e/*.spec.ts` |
-| 15 | All 7 declared requirement IDs (SUBM-01/02/03/06, FEED-01/03/04) are marked Complete in REQUIREMENTS.md and traced to Phase 1 | ✓ VERIFIED | `.planning/REQUIREMENTS.md` lines 19-45, 103-120 — all 7 marked `[x]`/`Complete`, mapped to Phase 1 |
+| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | ✓ VERIFIED | Unchanged since prior pass (file not touched by plan 01-08); `CameraCapture.tsx` uses only `getUserMedia`; no `<input type="file">`/`capture=` in `src/` |
+| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | ✓ VERIFIED | Unchanged since prior pass; `CategoryPicker.tsx`, `geolocation.ts` `captureBestFix`, `submissionSchema` untouched by plan 01-08 |
+| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | ✓ VERIFIED | Unchanged since prior pass; `src/lib/feed.ts` untouched; e2e `feed.spec.ts` enumerates and both tests present in the 13/13 listing re-run this pass |
+| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | ✓ VERIFIED | Unchanged since prior pass; `src/lib/ids.ts`, `SearchById.tsx`, `c/[id]/page.tsx` untouched |
+| 5 | G-01-3: real-device permission denial (Safari/first-visit) hard-blocks with no submit path | ✓ VERIFIED | Unchanged since prior pass; `PermissionGate.tsx`/`CameraCapture.tsx` untouched by plan 01-08 |
+| 6 | G-01-4: category picker renders as a uniform grid, not an uneven flex-wrap | ✓ VERIFIED | Unchanged since prior pass; `CategoryPicker.tsx` untouched |
+| 7 | G-01-EXTRA-1: production feed loads real data, not a 500 | ✓ VERIFIED | Unchanged since prior pass; `db/client.ts`, `api/feed/route.ts` untouched by plan 01-08 |
+| 8 | The captured photo has a visible geotag + timestamp overlay burned onto the canvas, and the timestamp is never silently dropped (D-02, 01-03-PLAN.md must-have) | ✗ FAILED | Original 2-line CR-01 trigger genuinely fixed (independently re-verified — see Re-Verification Summary). A related, still-present defect in the same function silently drops the timestamp when the overlay text needs 3+ physical lines (e.g. a long GPS-accuracy value). Independently reproduced this pass via standalone Node execution of the exact current source: `wrapOverlayLines(stubCtx, "12.9716, 77.5946 · ±123457m · 23 Jul 2026, 14:03", 20)` → `["12.9716, 77.5946 ·", "±123457m · 23 Jul"]` — timestamp gone, no ellipsis. See `gaps` in frontmatter. |
+| 9 | The internal serial `complaints.id` is never exposed in any URL/API/feed payload — only `public_id` (T-01-01 IDOR prohibition) | ✓ VERIFIED | Unchanged since prior pass; query surfaces untouched by plan 01-08 |
+| 10 | Poster identity (`submitter_id`) is never exposed on the feed or permalink (D-06 prohibition) | ✓ VERIFIED | Unchanged since prior pass |
+| 11 | Presigned-upload key/content-type are always server-derived, never client-supplied (T-01-02/T-01-03 prohibition) | ✓ VERIFIED | Unchanged since prior pass; `upload-url/route.ts` untouched |
+| 12 | The `complaints` table exists with a `geometry(point,4326)` location column, GiST index, and `public_id` UNIQUE constraint | ✓ VERIFIED | Unchanged since prior pass; `db/schema.ts` untouched |
+| 13 | Build/typecheck are clean on the current commit | ✓ VERIFIED | `npx tsc --noEmit` exits 0 (re-run this verification) |
+| 14 | The full unit test suite passes | ✓ VERIFIED | `npx vitest run` → 33/33 passed (6 test files, +3 since prior pass' 30/30 — new wrapOverlayLines coverage) — re-run this verification |
+| 15 | The e2e suite enumerates cleanly | ✓ VERIFIED | `npx playwright test --list` → 13/13 tests across 4 spec files (unchanged count; e2e specs untouched by plan 01-08) — re-run this verification |
+| 16 | No debt markers (TODO/FIXME/XXX/TBD) or `test.fixme()` stubs remain in tracked source | ✓ VERIFIED | Repo-wide grep of `src/`/`tests/` found zero matches; targeted grep of the two files plan 01-08 touched also clean |
+| 17 | Rapid double-tapping Publish cannot create two complaints | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | Unchanged since prior pass; guard present and correct by construction, no concurrency test exercises the race |
+| 18 | All 7 declared requirement IDs (SUBM-01/02/03/06, FEED-01/03/04) are marked Complete in REQUIREMENTS.md and traced to Phase 1 | ✗ NOT YET (expected while gaps_found) | `.planning/REQUIREMENTS.md` currently shows all 7 as `Gaps Found` in the Traceability table (SUBM-01's checkbox is `[x]` but the table status was intentionally reverted, per commit `2733b44 docs(phase-01): revert premature Complete requirements after gaps found`) — consistent with, not contradicting, this pass's `gaps_found` status; will correctly flip to Complete once the residual overlay gap is closed. Not counted as a fresh regression. |
 
-**Score:** 15/15 programmatically verifiable truths VERIFIED. 0 behavior-unverified. 8 additional items (visual/real-device/load-failure/rate-limit-sign-off) are routed to human verification below — every one of them was already explicitly flagged as `verification: backstop` or `human_judgment: true` by the plans/SUMMARYs themselves (this is expected under the project's `human_verify_mode: end-of-phase` config, not a gap discovered by this verification).
+**Score:** 16/18 truths verified (15 VERIFIED + 1 not separately counted as behavior-unverified). 1 FAILED (residual overlay bug, truth #8). 1 PRESENT_BEHAVIOR_UNVERIFIED (double-tap race). Truth #18 tracked separately as an expected consequence of `gaps_found`, not a distinct new defect.
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/lib/db/schema.ts` | `complaints` table: serial id (internal), `public_id` UNIQUE, `submitter_id`, `category`, `geometry(point,4326)` + GiST index, `accuracy_m`, `photo_key`, `created_at` | ✓ VERIFIED | All columns present exactly as declared; SRID-drop workaround documented in-code |
-| `src/lib/db/client.ts` | postgres-js + drizzle singleton | ✓ VERIFIED | Now uses `requireEnv("DATABASE_URL")` (WR-04 fix) instead of a blind `!` assertion |
-| `src/types/complaint.ts` | `CATEGORIES`, `submissionSchema`, `FeedItem` shared contract | ✓ VERIFIED | 5 categories; India-bbox + finite/nonnegative/max(100000) accuracy bound (WR-02 fix); photoKey regex |
-| `src/lib/ids.ts` | `generatePublicId()` opaque ID generator | ✓ VERIFIED | `KYA-` + 7-char nanoid customAlphabet, ambiguity-free 32-symbol alphabet |
-| `src/lib/r2.ts` | `presignPhotoUpload` + `photoExists` (CR-01 fix) | ✓ VERIFIED | `HeadObjectCommand`-backed existence check; 300s presign expiry (WR-08 fix) |
-| `src/app/api/upload-url/route.ts` | Server-derived key/content-type presign endpoint | ✓ VERIFIED | Only accepts `{ ext }` enum; key/contentType never client-supplied |
-| `src/actions/submit-complaint.ts` | zod-validate → photoExists → device-id → retry-loop → geometry insert | ✓ VERIFIED | All steps present in the stated order; CR-01 gate added before insert |
-| `src/lib/device-id.ts` | `getOrCreateDeviceId()` CSPRNG cookie identity | ✓ VERIFIED | `crypto.randomUUID()`, httpOnly, `secure` in production (WR-03 fix) |
-| `src/components/capture/CameraCapture.tsx` | Live preview + orientation-safe overlay-burned capture | ✓ VERIFIED | `getSettings()` re-read per capture, no mirror, `drawOverlay` before `toBlob` |
-| `src/components/capture/PermissionGate.tsx` | Proactive Permissions-API hard-block | ✓ VERIFIED | Listener cleanup fixed (WR-01); fails open only when the API/permission name is unsupported |
-| `src/components/capture/CategoryPicker.tsx` | 5-category chips, amber selected, 44px targets | ✓ VERIFIED | `min-h-11`, amber-500 border/bg on selected |
-| `src/lib/geolocation.ts` | `captureBestFix` wait-for-fix window, `no-fix` rejection | ✓ VERIFIED | `watchPosition`, best-accuracy retained, never resolves a fabricated coordinate |
-| `src/lib/overlay.ts` | `formatOverlayText` + `drawOverlay` burn-in | ✓ VERIFIED | Word-wrap + ellipsis-truncate up to 2 lines; deterministic IST formatting |
-| `src/lib/feed.ts` | `nearbyFeed`/`recentFeed` cursor-paginated, tie-broken queries | ✓ VERIFIED | `::geography`/`<->` KNN; row-comparison cursor; Date-serialization bug fixed (`e394729`) |
-| `src/app/api/feed/route.ts` | Cursor-paginated GET, lat/lng optional | ✓ VERIFIED | Delegates to `nearbyFeed`/`recentFeed`; logs errors (WR-05 fix) |
-| `src/components/feed/FeedCard.tsx` / `FeedList.tsx` | Photo/badge/distance/timestamp card, infinite scroll, broken-photo tile | ✓ VERIFIED | Category-colored fallback tile on `onError`; IntersectionObserver sentinel unmounts on null cursor |
-| `src/components/feed/SearchById.tsx` | Search-by-ID with URL-paste extraction, existence pre-check | ✓ VERIFIED | Extracts `/c/{id}` segment; `GET` pre-check before navigating |
-| `src/app/c/[id]/page.tsx` + `not-found.tsx` | SSR permalink by `public_id` only, dedicated not-found | ✓ VERIFIED | Never selects `submitter_id`/serial id; segment `not-found.tsx` present (avoids Next's generic 404) |
-| `src/lib/distance.ts` | `formatDistance`/`formatRelativeTime` | ✓ VERIFIED | Clock-skew clamp added (WR-06 fix); 8 unit tests pass |
+| `src/lib/overlay.ts` | `formatOverlayText` + `wrapOverlayLines` + `drawOverlay` burn-in, no silent content loss | ⚠️ PARTIALLY FIXED (functional, still incorrect on a related path) | `formatOverlayText` correct and unit-tested. `wrapOverlayLines`'s originally-reported off-by-one is fixed and now unit-tested (3 new assertions). A related defect (dangling `current` fragment silently discarded by the post-loop truncation instead of being ellipsized) remains, reproduced independently this pass. |
+| `tests/unit/overlay.test.ts` | Direct coverage of `wrapOverlayLines`, not just `formatOverlayText` | ✓ VERIFIED (coverage added, but incomplete) | New `describe("wrapOverlayLines")` block exists with 3 assertions per plan 01-08; however none of the 3 assert on *content* for the "longer text" case (only `lines.length <= 2`), so the residual defect is not caught by this new coverage either. |
+| All other artifacts from the prior pass (`src/lib/db/schema.ts`, `src/lib/db/client.ts`, `src/app/api/feed/route.ts`, `PermissionGate.tsx`, `CameraCapture.tsx` escalation wiring, `CategoryPicker.tsx`, `src/lib/feed.ts`, `FeedCard.tsx`/`FeedList.tsx`, `c/[id]/page.tsx`/`not-found.tsx`) | Unchanged | ✓ VERIFIED (regression check) | `git diff --stat` between the prior verification's HEAD and this pass's HEAD confirms only `src/lib/overlay.ts` and `tests/unit/overlay.test.ts` were modified — no other artifact could have regressed. |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|----|--------|---------|
-| `CameraCapture.tsx` | `overlay.ts` | `drawOverlay(ctx,...)` before `canvas.toBlob` | ✓ WIRED | Confirmed at `CameraCapture.tsx:99` (call) → `:101` (`toBlob`) |
-| `CameraCapture.tsx` | `/api/upload-url` | fetch POST then PUT to presigned URL | ✓ WIRED | `CameraCapture.tsx:112-124` |
-| `capture/page.tsx` | `submit-complaint.ts` | Server Action call | ✓ WIRED | Confirmed via passing e2e |
-| `submit-complaint.ts` | `r2.ts` | `photoExists(parsed.photoKey)` before insert | ✓ WIRED | `submit-complaint.ts:39` |
-| `submit-complaint.ts` | `db/schema.ts` | `db.insert(complaints)` with geometry point | ✓ WIRED | `submit-complaint.ts:54-64` |
-| `FeedList.tsx` | `/api/feed` | IntersectionObserver → fetch next cursor page | ✓ WIRED | Present per Plan 04 SUMMARY + code read |
-| `c/[id]/page.tsx` | `db/schema.ts` | `WHERE public_id = $1`, never serial id | ✓ WIRED | `c/[id]/page.tsx:51,57` |
-| `SearchById.tsx` | `c/[id]/page.tsx` | existence-check GET then `router.push` | ✓ WIRED | `SearchById.tsx:40-44` |
+| `CameraCapture.tsx` | `overlay.ts` | `drawOverlay(ctx,...)` before `canvas.toBlob` | ✓ WIRED (but source function still has a residual bug) | Call order confirmed unchanged at `CameraCapture.tsx:124`/`overlay.ts:108`; the wiring is not the defect — `wrapOverlayLines`' internal loop/post-loop interaction still is, on the longer-text trigger. |
+| `wrapOverlayLines` | `drawOverlay`'s bar-height/line-render loop | Return value drives `lines.length * lineHeight` and `lines.forEach(...)` rendering | ✓ WIRED | Confirmed in source (`overlay.ts:110-120`) — whatever `wrapOverlayLines` returns is faithfully rendered; the defect is upstream (which lines make it into the array), not in this rendering step. |
+| All other key links from the prior pass | — | — | ✓ VERIFIED (regression check, files untouched) | Not re-traced line-by-line this pass; confirmed unaffected via the same `git diff --stat` scoping evidence above. |
 
-### Behavioral Spot-Checks (live infrastructure, not mocked)
+### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Full capture write path (camera→GPS→R2 upload→photoExists gate→geometry insert) | `npx playwright test tests/e2e/capture.spec.ts -g "produces a published complaint"` | 1 passed (12.8s) | ✓ PASS |
-| Feed proximity ordering + full pagination-cursor walk (exercises the fixed Date-serialization bug) | `npx playwright test tests/e2e/feed.spec.ts -g "nearest complaint ranks above"` | 1 passed (28.9s) | ✓ PASS |
-| Permalink not-found path | `npx playwright test tests/e2e/permalink.spec.ts -g "unknown ID"` | 1 passed (2.1s) | ✓ PASS |
-| Full unit suite | `npx vitest run` | 24/24 passed | ✓ PASS |
-| Full e2e suite enumeration | `npx playwright test --list` | 10/10 tests enumerate across 4 files | ✓ PASS |
+| Original CR-01 trigger (2-line, prefix-fills-line-1) is fixed | Standalone Node re-implementation of current `wrapOverlayLines`, run against plan 01-08's exact reproduction input | Timestamp retained on line 2 | ✓ PASS |
+| Residual defect (3+ physical lines needed) reproduction | Standalone Node re-implementation of current `wrapOverlayLines`, run against a long-accuracy-value overlay string (`±123457m`) at maxWidth 20 | `["12.9716, 77.5946 ·", "±123457m · 23 Jul"]` — timestamp dropped, no ellipsis | ✗ CONFIRMS RESIDUAL BUG |
+| `tests/unit/overlay.test.ts` (targeted) | `npx vitest run tests/unit/overlay.test.ts` | 9/9 passed | ✓ PASS (but does not cover the residual defect — see artifact notes) |
+| Full unit test suite | `npx vitest run` | 33/33 passed (6 files) | ✓ PASS |
 | Typecheck | `npx tsc --noEmit` | exits 0 | ✓ PASS |
-| Production build | `npm run build` | succeeds, all 6 routes compile | ✓ PASS |
-
-*Note: per verification protocol (avoid re-running the full live-infra e2e suite unnecessarily — it mutates the shared Supabase DB), 3 of the 10 e2e tests were spot-checked directly rather than the full 10. These 3 were chosen specifically because they exercise the two areas that changed after the SUMMARYs were written: the CR-01 photo-existence gate (capture test) and the Date-serialization pagination fix (feed test), plus one baseline sanity check (permalink not-found). All 3 passed. Combined with the unit suite (24/24, independently re-run) and clean build/typecheck, this constitutes strong evidence the "24 unit + 10 e2e pass clean" claim holds on the current commit.*
+| e2e suite enumeration | `npx playwright test --list` | 13/13 tests enumerate across 4 files (unchanged) | ✓ PASS |
+| Lint | `npm run lint` | 3 errors, all confirmed in untracked/ignored `.claude/worktrees/agent-*` copies (`git check-ignore -v` confirms `.git/info/exclude` match, not part of the working tree) | ✓ PASS (no in-scope regressions) |
 
 ### Requirements Coverage
 
 | Requirement | Source Plan | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| SUBM-01 | 01-02, 01-03 | Live in-app camera capture only, no gallery upload | ✓ SATISFIED | `CameraCapture.tsx` (getUserMedia only), `PermissionGate.tsx` hard-block |
-| SUBM-02 | 01-01, 01-03 | 5 fixed categories, server-validated | ✓ SATISFIED | `CategoryPicker.tsx`, `submissionSchema` enum |
-| SUBM-03 | 01-02, 01-03 | Live GPS at submit time, never EXIF | ✓ SATISFIED | `geolocation.ts` `captureBestFix` (watchPosition only) |
-| SUBM-06 | 01-01, 01-02 | Unique opaque searchable ID | ✓ SATISFIED | `ids.ts` `generatePublicId`, DB UNIQUE constraint |
-| FEED-01 | 01-02, 01-04 | Proximity/recency feed, viewable by anyone | ✓ SATISFIED | `feed.ts` `nearbyFeed`/`recentFeed`, no auth gate on `/` |
-| FEED-03 | 01-04 | Search by ID | ✓ SATISFIED | `SearchById.tsx` |
-| FEED-04 | 01-04 | Shareable permalink | ✓ SATISFIED | `c/[id]/page.tsx` |
+| SUBM-01 | 01-02, 01-03, 01-05 | Live in-app camera capture only, no gallery upload | ✓ SATISFIED (unaffected by overlay gap) | `CameraCapture.tsx` (getUserMedia only) — the overlay defect is about burn-in completeness, not capture-path enforcement |
+| SUBM-02 | 01-01, 01-03, 01-05 | 5 fixed categories, server-validated | ✓ SATISFIED | Unchanged |
+| SUBM-03 | 01-02, 01-03, 01-05 | Live GPS at submit time, never EXIF | ✓ SATISFIED | The authoritative GPS location is a DB column (`geometry(point,4326)`), stored independently of the canvas overlay per this project's own CLAUDE.md architecture decision — unaffected by the overlay bug |
+| SUBM-06 | 01-01, 01-02 | Unique opaque searchable ID | ✓ SATISFIED | Unchanged |
+| FEED-01 | 01-02, 01-04, 01-06, 01-07 | Proximity/recency feed, viewable by anyone | ✓ SATISFIED | Unchanged |
+| FEED-03 | 01-04 | Search by ID | ✓ SATISFIED | Unchanged |
+| FEED-04 | 01-04 | Shareable permalink | ✓ SATISFIED | Unchanged |
 
-No orphaned requirements — REQUIREMENTS.md maps exactly these 7 IDs to Phase 1, and all 7 are claimed across the 4 plans and confirmed `[x]`/`Complete`.
+No orphaned requirements — same 7 IDs mapped in REQUIREMENTS.md, all traced to Phase 1 across 01-01…01-08. All 7 formal requirement descriptions remain satisfied even with the overlay gap open (none reference the image overlay specifically — SUBM-03 concerns the DB-stored GPS value). The gap is tracked against the Plan-level D-02 must-have, matching how the prior pass scoped it. REQUIREMENTS.md's Traceability table correctly still shows all 7 as "Gaps Found" (not yet flipped to Complete), consistent with this pass's `gaps_found` status.
 
 ### Anti-Patterns Found
 
-None. Repo-wide grep for `TODO|FIXME|XXX|TBD`, `HACK|PLACEHOLDER`, "coming soon"/"not yet implemented", and `test.fixme()` across `src/` and `tests/e2e/` found zero matches. No stub returns (`return null`/`return {}`/`return []`) feeding rendered output were found in the reviewed files.
+None blocking beyond the tracked CR-01 residual (which is a logic defect, not a debt marker). Targeted grep of the two files plan 01-08 touched (`src/lib/overlay.ts`, `tests/unit/overlay.test.ts`) for `TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER` found zero matches. The 3 `npm run lint` errors remain confirmed-untracked/ignored `.claude/worktrees/agent-*` copies, unchanged from the prior pass.
 
-### Post-SUMMARY Changes Independently Verified
-
-The task brief noted two rounds of post-SUMMARY changes; both were independently confirmed present and correctly wired in this verification, not merely trusted from the review docs:
-
-1. **01-REVIEW.md / 01-REVIEW-FIX.md** (8 of 9 findings fixed, 1 explicitly deferred to Phase 4): CR-01 (photo-existence gate — the security-critical fix, since the product's entire premise is "photo-verified" reports) and all 7 warnings (WR-01 through WR-06, WR-08) were read directly in the current source and confirmed present. WR-07 (rate limiting) was explicitly and correctly deferred to Phase 4 per `CLAUDE.md`'s own stack plan (Upstash Redis) — not a gap in this phase.
-2. **Date-serialization cursor bug** (commit `e394729`, found during post-fix re-verification): confirmed the `new Date(...)` wrapper is gone from `src/lib/feed.ts`'s cursor filters, and the exact code path it touches (pagination cursor comparison) was independently re-exercised via a live e2e run in this verification, passing cleanly.
+Code review (`01-REVIEW.md`, this run) also re-confirmed the 10 previously-known/newly-found Warning/Info-level robustness gaps (concurrency guards, unguarded track access, permission-check fail-open, DB client singleton guard, `photoExists` error conflation, unvalidated-category icon crash risk, logging inconsistency, missing rate limiting, unreachable code, duplicated helpers, dead `.jpeg`/webp support, and the captured-photo-not-previewed-before-publish gap). These remain correctly triaged as Warnings/Info, not Criticals — none block a ROADMAP success criterion or REQUIREMENTS.md ID for this phase, so they are noted for visibility but not elevated to blocking gaps here.
 
 ### Human Verification Required
 
-8 items — all pre-flagged by the plans/SUMMARYs themselves as `verification: backstop` or `human_judgment: true`, consistent with this project's `human_verify_mode: end-of-phase` configuration. See the `human_verification` list in the frontmatter above for the full set (design-system fonts on a real device, iOS Safari orientation/overlay legibility, real permission-denial UX, category-picker visual sizing + double-tap timing, forced-404 photo placeholder, forced feed-load-failure banner, infinite-scroll stop-at-end with >20 seeded complaints, and a sign-off that the deferred rate-limiting gap is acceptable for Phase 1).
+3 items remain open (see frontmatter for the full structured list) — all unchanged since the prior pass, none newly introduced by plan 01-08:
 
-None of these are code-level gaps — every one is a real-device/visual/load-condition check that cannot be resolved by static analysis or a headless test, and every one was already surfaced by the executing plans as deferred to this exact review point.
+1. **iOS Safari real-device orientation/overlay legibility** — skipped in `01-UAT.md` (test 2), still open. Now doubly relevant given the residual overlay defect: confirm the timestamp is visible, or that a visible truncation signal appears if the overlay text wraps to 3+ lines on a real narrow device viewport.
+2. **Forced photo-404 placeholder render** — skipped in `01-UAT.md` (test 5), still open.
+3. **Double-tap Publish race** — code guard present and correct by construction, but no concurrency test exercises it; unchanged since the prior verification cycle.
 
 ### Gaps Summary
 
-No blocking gaps found. All 15 programmatically-checkable must-haves (goal-backward truths, required artifacts, key links, requirement coverage, anti-pattern scan, and the two post-SUMMARY fixes) are VERIFIED against the current codebase — not just asserted by the SUMMARYs. The single Critical finding from code review (CR-01 — the product's core "photo-verified" premise was previously unenforced server-side) is confirmed fixed and re-exercised via a live e2e run. The independently-found Date-serialization pagination bug is confirmed fixed and re-exercised via a live e2e run that specifically walks the affected cursor-comparison code path.
+**1 blocking gap remains, in the same location as the prior pass:** `src/lib/overlay.ts`'s `wrapOverlayLines` still silently drops the burned-in timestamp — plan 01-08 genuinely fixed the specific 2-line trigger it targeted (independently re-verified via direct source read, the new unit tests, and an independent standalone re-implementation run against the plan's exact scenario), but this phase's fresh code review surfaced, and this verification pass independently confirmed by hand-executing the current source, a **second, related trigger in the same function** (overlay text needing 3+ physical lines to wrap, e.g. from a long/imprecise GPS accuracy value) that reproduces the identical "timestamp silently vanishes with no ellipsis" failure mode. This is the same D-02 must-have failing again via a different, equally realistic path — not a new, unrelated defect.
 
-The phase's status is `human_needed` rather than `passed` solely because 8 explicitly-flagged real-device/visual/load-condition items remain open — this is expected, not a regression, under the project's end-of-phase human review config.
+**No regressions:** `git diff --stat` between the prior verification pass and this one confirms only `src/lib/overlay.ts` and `tests/unit/overlay.test.ts` changed; every other previously-VERIFIED truth, artifact, and key link was spot-checked or diff-confirmed unaffected. Full unit suite grew 30→33 passing (all green), typecheck clean, e2e enumeration unchanged at 13/13, lint unchanged (3 pre-existing, out-of-scope, ignored-directory errors).
+
+**Recommended next gap-closure plan:** fix the post-loop path in `wrapOverlayLines` so a break-triggered truncation never silently discards the dangling fragment — either skip appending it and force-ellipsize the last retained line, or otherwise guarantee a visible truncation signal whenever content is cut. Extend `tests/unit/overlay.test.ts`'s "longer text" case (or add a dedicated one using a long-accuracy-value overlay string) to assert on *content* — e.g. the last line ends with `…` when truncation occurs — not just `lines.length <= 2`, so this class of regression cannot silently ship a third time. `01-REVIEW.md`'s suggested fix (tracking a `truncated` flag and skipping the dangling-fragment push) is a reasonable starting point but should be independently re-verified against a fresh hand-execution before being trusted, per this pass's own findings.
+
+**3 human-verification items remain open**, all carried forward unchanged from the prior pass — none are new regressions from plan 01-08.
 
 ---
 
-_Verified: 2026-07-23T16:15:00Z_
+_Verified: 2026-07-26T00:20:00Z_
 _Verifier: Claude (gsd-verifier)_
