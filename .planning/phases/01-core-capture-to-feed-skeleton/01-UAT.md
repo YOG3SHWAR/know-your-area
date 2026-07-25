@@ -1,14 +1,20 @@
 ---
-status: diagnosed
+status: testing
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-23T11:27:33.620Z"
+updated: "2026-07-26T01:40:00Z"
 ---
 
 ## Current Test
 
-[testing paused — 2 items outstanding]
+number: 2
+name: Real iOS Safari: photo orientation and overlay legibility
+expected: |
+  Capture a photo in portrait orientation on real iOS Safari — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio. Now that the residual CR-01 truncation gap is closed (plan 01-09), also confirm a visible "…" appears if the overlay wraps past 2 lines on a narrow real device — never a silently-clean-looking-but-incomplete line.
+awaiting: user response
+
+[testing resumed after gap-closure plans 01-05..01-09 — 3 items outstanding: tests 2, 5, and a new double-tap concurrency test below]
 
 ## Tests
 
@@ -25,16 +31,18 @@ result: skipped
 ### 3. Real device: permission-denial hard block
 
 expected: On a real device, deny camera or location permission — the exact UI-SPEC hard-block copy appears with settings guidance and no submit path is reachable.
-result: issue
+result: resolved
 reported: "The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission."
 severity: blocker
+resolved_by: "Plan 01-05: routed CameraCapture's getUserMedia()/getCurrentPosition() denial back through PermissionGate's shared hard-block state (deniedRef latch), instead of rendering raw err.message. Verified via tests/e2e/capture.spec.ts denial specs (currently passing) and phase 01-VERIFICATION.md re-verification pass. Not re-tested live on a real device since the fix; e2e coverage + code re-verification are the evidence of closure."
 
 ### 4. Real device: category picker touch targets and double-tap guard
 
 expected: The 5-category picker shows amber-selected chips at 44px touch targets, comfortably tappable; rapid double-tapping Publish cannot create two complaints.
-result: issue
+result: resolved
 reported: "chips not arranged properly (uneven wrap: some chips full-width alone, others paired) — camera flip complaint withdrawn by user, confirmed intentional rear-camera-only design"
 severity: cosmetic
+resolved_by: "Plan 01-05: CategoryPicker.tsx switched from flex-wrap to a fixed grid (grid grid-cols-2), giving every chip a uniform cell regardless of label length while keeping the 44px touch target. Verified via tests/e2e/capture.spec.ts 'category picker renders uniform-width chips (G-01-4)' (currently passing). The double-tap-guard half of this test is tracked separately below (test 9) — it was never actually exercised by this test, only the chip layout was reported broken."
 
 ### 5. Forced photo 404 renders a placeholder, not a broken image
 
@@ -57,12 +65,19 @@ result: pass
 expected: Confirm that the absence of rate limiting on /api/upload-url and submitComplaint is an intentional, documented Phase 1 scope gap (WR-07), deferred to Phase 4 — not a regression to fix now.
 result: pass
 
+### 9. Rapid double-tap Publish cannot create two complaints
+
+expected: On the /capture page, after a photo is captured and a category chosen, tap "Publish Report" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op.
+result: pending
+why_pending: "Carried forward from phase 01-VERIFICATION.md's behavior_unverified_items: the guard (`if (!photoKey || !category || publishPhase !== \"idle\") return;` in src/app/capture/page.tsx:37) is present and correct by construction, but no concurrency/race test (unit or e2e) exercises two near-simultaneous clicks — a state-transition/ordering invariant that static code reading cannot prove holds under real double-tap timing."
+
 ## Summary
 
-total: 8
+total: 9
 passed: 4
-issues: 2
-pending: 0
+resolved: 2
+issues: 0
+pending: 1
 skipped: 2
 blocked: 0
 
@@ -70,7 +85,7 @@ blocked: 0
 
 - gap_id: G-01-4
   truth: "The 5-category picker shows amber-selected chips at 44px touch targets, comfortably tappable."
-  status: failed
+  status: resolved
   reason: "User reported: chips not arranged properly — CategoryPicker.tsx uses flex-wrap sized to label text, so longer labels (Pothole/Road damage, Garbage/Sanitation) each occupy a full row alone while shorter ones pair up, producing an uneven/inconsistent wrap."
   severity: cosmetic
   test: 4
@@ -83,10 +98,11 @@ blocked: 0
 
     - "Replace the flex-wrap layout with a fixed grid (e.g. grid grid-cols-2 gap-2) so every chip occupies a uniform cell regardless of label length, keeping min-h-11 for the 44px touch target"
   debug_session: ".planning/debug/category-chip-uneven-wrap.md"
+  resolved_by: "Plan 01-05. Re-verified passing in phase 01-VERIFICATION.md (tests/e2e/capture.spec.ts 'category picker renders uniform-width chips')."
 
 - gap_id: G-01-3
   truth: "On a real device, deny camera or location permission — the exact UI-SPEC hard-block copy appears with settings guidance and no submit path is reachable."
-  status: failed
+  status: resolved
   reason: "User reported: The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission."
   severity: blocker
   test: 3
@@ -102,10 +118,11 @@ blocked: 0
 
     - "Route the getUserMedia()/getCurrentPosition() rejection in CameraCapture back through a shared callback/context keyed on err.name === 'NotAllowedError' so denial triggers PermissionGate's existing hard-block state instead of rendering err.message directly"
   debug_session: ".planning/debug/permission-hard-block-not-shown.md"
+  resolved_by: "Plan 01-05 (deniedRef latch in PermissionGate). Re-verified passing in phase 01-VERIFICATION.md (tests/e2e/capture.spec.ts denial specs)."
 
 - gap_id: G-01-EXTRA-1
   truth: "The public feed loads real complaint data on normal page load (not just under a forced/simulated failure — see test 6)."
-  status: failed
+  status: resolved
   reason: "Ad-hoc finding during test 3: on https://know-your-area.vercel.app/ (production deploy) the home feed unconditionally shows 'Couldn't load reports. Check your connection and try again.' Confirmed via curl: GET /api/feed returns HTTP 500 {\"error\":\"Couldn't load reports.\"} on every request, not just intermittently. User confirms the feed loads fine on localhost, so this looks like a production-deployment/env-config issue (e.g. DB connection string, Supabase pause) rather than an application code bug. Server-side error is swallowed (console.error only) in src/app/api/feed/route.ts:36, so exact root cause is not yet known."
   severity: blocker
   test: ad-hoc
@@ -123,3 +140,4 @@ blocked: 0
     - "Cross-reference the DATABASE_URL host/port in Vercel's Production env scope against Supabase's Direct vs Session Pooler vs Transaction Pooler connection strings"
     - "Add explicit ssl and prepare:false options to the postgres.js client defensively, since they are correct regardless of which hypothesis is confirmed"
   debug_session: ".planning/debug/production-feed-500.md"
+  resolved_by: "Plan 01-06 (defensive client.ts hardening + real error logging) + Plan 01-07 (confirmed/repaired Vercel DATABASE_URL pooler config and redeployed). STATE.md: 'Production feed 500 root cause resolved via Vercel DATABASE_URL/Supabase pooler config + redeploy.'"
