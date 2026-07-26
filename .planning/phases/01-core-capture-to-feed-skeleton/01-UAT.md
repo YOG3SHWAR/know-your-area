@@ -1,9 +1,9 @@
 ---
-status: complete
+status: diagnosed
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-27T00:03:00Z"
+updated: "2026-07-27T00:20:00Z"
 ---
 
 ## Current Test
@@ -84,8 +84,16 @@ blocked: 0
   reason: "User reported: on real device web and phone not working, in localhost it is working, i merged the latest code in main. Screenshot: on production (knowyourarea.in) after capturing a photo, the preview shows 'Load failed' text beneath the captured image and the Publish Report button is disabled/grayed out — capture-to-publish flow is blocked in production on a real device, while the same flow works on localhost."
   severity: blocker
   test: 2
-  artifacts: []
-  missing: []
+  root_cause: "Cloudflare R2 bucket's CORS AllowedOrigins was configured only for http://localhost:3000 during Plan 01-02 infra setup; the production origin https://knowyourarea.in was never added. Photo upload PUTs directly browser→R2 via a presigned URL (bypassing the Next.js server, per the phase's Vercel 4.5MB body-limit design), so it is a genuine cross-origin request subject to the bucket's CORS policy — blocked on production, allowed on localhost with identical code. Safari's fetch() throws the literal 'Load failed' TypeError for a CORS-blocked/failed request (Safari's own documented network-error text), and CameraCapture.tsx's upload catch block surfaces err.message verbatim to the UI and skips onCaptured(key) on any failure — so photoKey in page.tsx never gets set and Publish Report's disabled={!photoKey || ...} stays true permanently. The 'just merged into main' timing is coincidental: the CORS gap is infra state outside git, present since Plan 01-02 — this was simply the first real-device test against the actual production origin."
+  artifacts:
+    - path: "Cloudflare R2 bucket CORS config (infra, not in repo)"
+      issue: "AllowedOrigins only includes http://localhost:3000; missing https://knowyourarea.in (and any active Vercel preview-deployment origins)"
+    - path: "src/components/capture/CameraCapture.tsx"
+      issue: "Upload catch block (~lines 179-183) passes raw err.message straight to the UI and skips onCaptured(key) on any upload failure, so a CORS rejection surfaces as literal browser text ('Load failed') instead of an actionable message"
+  missing:
+    - "Add https://knowyourarea.in (and active Vercel preview-deployment origins) to the R2 bucket's CORS AllowedOrigins via wrangler r2 bucket cors set or the Cloudflare dashboard"
+    - "Replace CameraCapture.tsx's raw err.message surfacing in the upload catch block with a sanitized, actionable error message, consistent with the existing camera/geolocation error handling in the same file"
+  debug_session: ".planning/debug/production-capture-load-failed.md"
 
 - gap_id: G-01-9
   truth: "On the /capture page, after a photo is captured and a category chosen, tap \"Publish Report\" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op."
