@@ -1,14 +1,14 @@
 ---
-status: diagnosed
+status: complete
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-26T03:00:00Z"
+updated: "2026-07-27T00:03:00Z"
 ---
 
 ## Current Test
 
-[testing paused — 3 items outstanding: tests 2 and 5 remain skipped with no reason recorded; test 9's original double-tap intent is now unblocked and needs a real re-run since Plan 01-10 code-fixed the G-01-9 symptom that was blocking it]
+[testing complete]
 
 ## Tests
 
@@ -20,7 +20,9 @@ result: pass
 ### 2. Real iOS Safari: photo orientation and overlay legibility
 
 expected: Capture a photo in portrait orientation on real iOS Safari — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio (RESEARCH.md Pitfall 3 explicitly evades emulation).
-result: skipped
+result: issue
+reported: "on real device web and phone not working, in localhost it is working, i merged the latest code in main. Screenshot: on production (knowyourarea.in) after capturing a photo, the preview shows 'Load failed' text beneath the captured image and the Publish Report button is disabled/grayed out — capture-to-publish flow is blocked in production on a real device, while the same flow works on localhost."
+severity: blocker
 
 ### 3. Real device: permission-denial hard block
 
@@ -41,7 +43,7 @@ resolved_by: "Plan 01-05: CategoryPicker.tsx switched from flex-wrap to a fixed 
 ### 5. Forced photo 404 renders a placeholder, not a broken image
 
 expected: Editing a card's photo_key to a nonexistent key renders a category-colored placeholder tile with an icon in the feed/permalink, not a broken-image icon.
-result: skipped
+result: pass
 
 ### 6. Forced feed query failure shows the error banner, not a blank feed
 
@@ -62,25 +64,33 @@ result: pass
 ### 9. Rapid double-tap Publish cannot create two complaints
 
 expected: On the /capture page, after a photo is captured and a category chosen, tap "Publish Report" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op.
-result: pending
-reason: "The blocking symptom originally reported here (no post-capture feedback, camera still live) was G-01-9 — code-fixed by Plan 01-10 (static preview + stream-stop + distinct 'Photo captured — Retake?' control). Verified automatically: full capture e2e spec 7/7 (incl. new G-01-9 preview/Retake test), tsc clean, lint clean, no regression to the happy path or Plan 01-05's denial hard-block. This test's ORIGINAL intent — the double-tap-Publish race guard (publishPhase !== \"idle\" single-flight guard in src/app/capture/page.tsx) — was never actually exercised, since the G-01-9 symptom blocked ever reaching a clean Publish-enabled state. Now unblocked; needs a human to actually attempt the rapid double-tap on a real device/browser and confirm exactly one complaint is created."
-severity: major
+result: pass
 
 ## Summary
 
 total: 9
-passed: 4
+passed: 6
 resolved: 2
-issues: 0
-pending: 1
-skipped: 2
+issues: 1
+pending: 0
+skipped: 0
 blocked: 0
 
 ## Gaps
 
+- gap_id: G-01-2
+  truth: "Capture a photo in portrait orientation on a real device — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio."
+  status: failed
+  reason: "User reported: on real device web and phone not working, in localhost it is working, i merged the latest code in main. Screenshot: on production (knowyourarea.in) after capturing a photo, the preview shows 'Load failed' text beneath the captured image and the Publish Report button is disabled/grayed out — capture-to-publish flow is blocked in production on a real device, while the same flow works on localhost."
+  severity: blocker
+  test: 2
+  artifacts: []
+  missing: []
+
 - gap_id: G-01-9
   truth: "On the /capture page, after a photo is captured and a category chosen, tap \"Publish Report\" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op."
-  status: code_fix_landed_pending_human_recheck
+  status: resolved
+  resolved_at: "2026-07-26"
   reason: "User reported: after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
   severity: major
   test: 9
