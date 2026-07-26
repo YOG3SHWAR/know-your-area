@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone.
   4. Each complaint has a unique, opaque ID and can be opened directly via search-by-ID or its permalink URL.
 
-**Plans**: 6/7 plans executed
+**Plans**: 10/10 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Project scaffold, PostGIS data layer + shared type contract, opaque IDs, test harness (Wave 1)
@@ -53,7 +53,19 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] 01-05-PLAN.md — Capture fixes: route real camera/GPS denial into the hard-block (G-01-3) + uniform 2-col category grid (G-01-4) (Gap Wave 1)
 - [x] 01-06-PLAN.md — DB client hardening: postgres.js ssl/prepare:false + surface real feed-query error (G-01-EXTRA-1 code fix) (Gap Wave 1)
-- [ ] 01-07-PLAN.md — Production feed verify: DATABASE_URL pooler + redeploy human-verify checkpoint (G-01-EXTRA-1 closure) (Gap Wave 2, blocked on 01-06)
+- [x] 01-07-PLAN.md — Production feed verify: DATABASE_URL pooler + redeploy human-verify checkpoint (G-01-EXTRA-1 closure) (Gap Wave 2, blocked on 01-06)
+
+**Gap Closure — Round 2** *(from 01-VERIFICATION.md re-verification — CR-01 blocker, overlay word-wrap drops burned-in timestamp)*
+
+- [x] 01-08-PLAN.md — Overlay fix: correct wrapOverlayLines break condition so the burned-in timestamp is retained (D-02) + add missing wrapOverlayLines unit coverage (CR-01) (Gap Wave 1)
+
+**Gap Closure — Round 3** *(from 01-VERIFICATION.md re-verification — residual CR-01: wrapOverlayLines silently drops the burned-in timestamp when overlay text needs 3+ wrap lines)*
+
+- [x] 01-09-PLAN.md — Overlay truncation fix: a break-triggered wrap-truncation always leaves a visible "…" signal instead of silently dropping trailing content (D-02) + content-based (not length-only) unit assertions (Gap Wave 1)
+
+**Gap Closure — Round 4** *(from 01-UAT.md test 9 — G-01-9 major: after capture the live camera keeps playing with no captured-photo feedback)*
+
+- [x] 01-10-PLAN.md — Capture confirmation: replace live feed with a static captured-photo preview + stop the stream + distinct "Photo captured — Retake?" control (G-01-9), and add the missing post-capture 'populated' state to 01-UI-SPEC.md (Gap Wave 1)
 
 **UI hint**: yes
 
@@ -177,7 +189,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Capture-to-Feed Skeleton | 6/7 | In Progress|  |
+| 1. Core Capture-to-Feed Skeleton | 10/10 | In Progress|  |
 | 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |

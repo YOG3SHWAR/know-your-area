@@ -8,7 +8,7 @@ import { captureBestFix } from "@/lib/geolocation";
 import { drawOverlay, formatOverlayText } from "@/lib/overlay";
 
 type CameraCaptureProps = {
-  onCaptured: (photoKey: string) => void;
+  onCaptured: (photoKey: string | null) => void;
 };
 
 type Status = "starting" | "ready" | "locating" | "uploading" | "captured" | "error";
@@ -26,10 +26,20 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
   const streamRef = useRef<MediaStream | null>(null);
   const [status, setStatus] = useState<Status>("starting");
   const [error, setError] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  // G-01-9: bumped by handleRetake to re-run the acquire effect below and
+  // restart the live camera after a captured-photo preview is dismissed.
+  const [cameraSession, setCameraSession] = useState(0);
   const reportDenied = usePermissionDenial();
 
   useEffect(() => {
     let cancelled = false;
+
+    // G-01-9: a Retake bumps cameraSession, re-running this effect — reset
+    // to the acquiring state each time so the restart is visibly signalled
+    // (matches the very first mount's "starting" behavior).
+    setStatus("starting");
+    setError(null);
 
     navigator.mediaDevices
       .getUserMedia({ video: { facingMode: "environment" } })
@@ -64,7 +74,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       cancelled = true;
       streamRef.current?.getTracks().forEach((track) => track.stop());
     };
-  }, [reportDenied]);
+  }, [reportDenied, cameraSession]);
 
   async function handleCapture() {
     const video = videoRef.current;
@@ -89,6 +99,11 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       return;
     }
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    // G-01-9: freeze a preview the instant Capture is tapped — this is the
+    // direct fix for "still live camera after capture". Refreshed below once
+    // the D-02 overlay is burned in so the shown preview matches the
+    // uploaded bytes exactly.
+    setPreviewUrl(canvas.toDataURL("image/jpeg", 0.85));
 
     setStatus("locating");
     setError(null);
@@ -111,6 +126,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       }
       setError("Couldn't get your location for this photo. Try again.");
       setStatus("error");
+      setPreviewUrl(null);
       return;
     }
 
@@ -122,6 +138,9 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       new Date(),
     );
     drawOverlay(ctx, canvas, overlayText);
+    // G-01-9: refresh the preview so the user sees the same burned-in
+    // overlay that is now part of the stored image bytes.
+    setPreviewUrl(canvas.toDataURL("image/jpeg", 0.85));
 
     const blob = await new Promise<Blob | null>((resolve) =>
       canvas.toBlob((b) => resolve(b), "image/jpeg", 0.85),
@@ -129,6 +148,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
     if (!blob) {
       setError("Couldn't capture the photo.");
       setStatus("error");
+      setPreviewUrl(null);
       return;
     }
 
@@ -149,12 +169,25 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       });
       if (!putRes.ok) throw new Error("Couldn't upload the photo.");
 
+      // G-01-9: stop the live stream on success — the overlaid preview
+      // above stays on screen as confirmation, so the camera indicator can
+      // go off without losing the "what did I just capture" feedback.
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
       setStatus("captured");
       onCaptured(key);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't upload the photo.");
       setStatus("error");
+      setPreviewUrl(null);
     }
+  }
+
+  function handleRetake() {
+    setError(null);
+    setPreviewUrl(null);
+    onCaptured(null);
+    setCameraSession((n) => n + 1);
   }
 
   const captureLabel =
@@ -163,6 +196,9 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
   return (
     <div className="flex flex-col items-center gap-4">
       <div className="relative w-full max-w-md">
+        {/* Always mounted so the stream binding (srcObject) is never lost —
+            a conditionally-unmounted video would remount without it, which
+            would break the generic error/retry paths (G-01-9). */}
         <video
           ref={videoRef}
           autoPlay
@@ -179,15 +215,35 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
             Starting camera…
           </div>
         )}
+        {previewUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt="Your just-captured photo, with geotag and timestamp overlay"
+            data-testid="capture-preview"
+            className="absolute inset-0 aspect-video w-full rounded-md bg-black object-cover"
+          />
+        )}
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      <Button
-        type="button"
-        onClick={handleCapture}
-        disabled={status === "starting" || status === "locating" || status === "uploading"}
-      >
-        {captureLabel}
-      </Button>
+      {status === "captured" ? (
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleRetake}
+          data-testid="retake-button"
+        >
+          Photo captured — Retake?
+        </Button>
+      ) : (
+        <Button
+          type="button"
+          onClick={handleCapture}
+          disabled={status === "starting" || status === "locating" || status === "uploading"}
+        >
+          {captureLabel}
+        </Button>
+      )}
     </div>
   );
 }

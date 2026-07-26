@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatOverlayText } from "@/lib/overlay";
+import { formatOverlayText, wrapOverlayLines } from "@/lib/overlay";
 
 // Fixed timestamp with an explicit IST offset so the formatted output is
 // deterministic regardless of the test runner's local timezone.
@@ -39,5 +39,81 @@ describe("formatOverlayText", () => {
   it("formats negative lat/lng to 4 decimal places", () => {
     const text = formatOverlayText({ lat: -12.9716, lng: -77.5946 }, 10, CAPTURE_DATE);
     expect(text.startsWith("-12.9716, -77.5946")).toBe(true);
+  });
+});
+
+// Minimal stub context: measureText returns a width proportional to
+// character count, so maxWidth below is expressed "in characters" for
+// deterministic, dependency-free assertions (no real canvas needed).
+function stubCtx() {
+  return {
+    measureText: (t: string) => ({ width: t.length }),
+  } as unknown as CanvasRenderingContext2D;
+}
+
+describe("wrapOverlayLines", () => {
+  it("retains the trailing timestamp on the last line (CR-01 regression)", () => {
+    // Old `=== OVERLAY_MAX_LINES - 1` break condition dropped every word
+    // after the second line started accumulating, silently discarding the
+    // burned-in timestamp — the D-02 anti-fraud proof. This must fail
+    // against the old break condition and pass against the fix.
+    const overlayText = "12.9716, 77.5946 · ±18m · 23 Jul 2026, 14:03";
+    const lines = wrapOverlayLines(stubCtx(), overlayText, 23);
+
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine).toContain("14:03");
+    expect(lastLine).toContain("2026");
+    // No truncation occurred here — the last line must not be forced to
+    // carry a spurious ellipsis (regression guard for the residual fix).
+    expect(lastLine.endsWith("…")).toBe(false);
+  });
+
+  it("never silently drops the timestamp for a long-accuracy 3+-line input (residual CR-01)", () => {
+    // ±123457m (a realistic poor/indoor/urban-canyon GPS fix) forces the
+    // formatted overlay text to require 3+ logical lines to wrap at this
+    // width. The old post-loop clamp appended-then-silently-discarded the
+    // dangling `current` fragment here, dropping "2026, 14:03" with no
+    // visible signal. This must fail against that behaviour and pass once
+    // a break-truncation always leaves a visible "…" on the last retained
+    // line.
+    const overlayText = "12.9716, 77.5946 · ±123457m · 23 Jul 2026, 14:03";
+    const lines = wrapOverlayLines(stubCtx(), overlayText, 20);
+
+    expect(lines.length).toBeLessThanOrEqual(2);
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(true);
+  });
+
+  it("caps wrapped output at OVERLAY_MAX_LINES (2) even for longer text, signaling truncation", () => {
+    const text = "aaaa bbbb cccc dddd eeee ffff";
+    const lines = wrapOverlayLines(stubCtx(), text, 9);
+
+    expect(lines.length).toBeLessThanOrEqual(2);
+    // Content-based (not length-only): truncated content must leave a
+    // visible ellipsis marker on the last retained line.
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(true);
+  });
+
+  it("does not over-ellipsize output that wraps cleanly with no truncation", () => {
+    const text = "aaaa bbbb cccc dddd";
+    const lines = wrapOverlayLines(stubCtx(), text, 9);
+
+    expect(lines).toHaveLength(2);
+    const lastLine = lines[lines.length - 1];
+    expect(lastLine.endsWith("…")).toBe(false);
+    expect(lines.join(" ")).toContain("aaaa");
+    expect(lines.join(" ")).toContain("bbbb");
+    expect(lines.join(" ")).toContain("cccc");
+    expect(lines.join(" ")).toContain("dddd");
+  });
+
+  it("ellipsizes a single unbreakable word that overflows maxWidth", () => {
+    const longWord = "a".repeat(40);
+    const lines = wrapOverlayLines(stubCtx(), longWord, 20);
+
+    expect(lines).toHaveLength(1);
+    expect(lines[0].endsWith("…")).toBe(true);
+    expect(stubCtx().measureText(lines[0]).width).toBeLessThanOrEqual(20);
   });
 });

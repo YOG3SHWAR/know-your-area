@@ -17,11 +17,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Complaint Submission
 
 - [x] **SUBM-01**: User can capture a live photo in-app (camera only — gallery/file-picker upload is blocked)
-- [x] **SUBM-02**: User selects one of 5 fixed categories when submitting (Pothole/Road damage, Garbage/Sanitation, Streetlight/Electrical, Water/Drainage, Traffic lights)
-- [x] **SUBM-03**: App auto-captures the user's GPS location at submission time (read live from the browser, not from image EXIF)
+- [ ] **SUBM-02**: User selects one of 5 fixed categories when submitting (Pothole/Road damage, Garbage/Sanitation, Streetlight/Electrical, Water/Drainage, Traffic lights)
+- [ ] **SUBM-03**: App auto-captures the user's GPS location at submission time (read live from the browser, not from image EXIF)
 - [ ] **SUBM-04**: Submitted location is reverse-geocoded to the lowest available address level (locality/ward/pincode)
 - [ ] **SUBM-05**: Submitted photos are automatically processed to blur faces and license plates before publishing
-- [x] **SUBM-06**: Each complaint receives a unique, opaque, searchable ID upon submission
+- [ ] **SUBM-06**: Each complaint receives a unique, opaque, searchable ID upon submission
 
 ### Verification & Anti-Abuse
 
@@ -39,10 +39,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Feed & Discovery
 
-- [x] **FEED-01**: Landing page shows a feed of complaints near the user's current location
+- [ ] **FEED-01**: Landing page shows a feed of complaints near the user's current location
 - [ ] **FEED-02**: Feed is ranked using a combination of recency, proximity, and engagement (not a flat chronological list)
-- [x] **FEED-03**: User can search for a complaint by its ID
-- [x] **FEED-04**: Each complaint has a shareable permalink
+- [ ] **FEED-03**: User can search for a complaint by its ID
+- [ ] **FEED-04**: Each complaint has a shareable permalink
 
 ### Engagement & Moderation
 
@@ -100,12 +100,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 | AUTH-02 | Phase 2 | Pending |
 | AUTH-03 | Phase 2 | Pending |
 | AUTH-04 | Phase 2 | Pending |
-| SUBM-01 | Phase 1 | Complete |
-| SUBM-02 | Phase 1 | Complete |
-| SUBM-03 | Phase 1 | Complete |
+| SUBM-01 | Phase 1 | Gaps Found |
+| SUBM-02 | Phase 1 | Gaps Found |
+| SUBM-03 | Phase 1 | Gaps Found |
 | SUBM-04 | Phase 3 | Pending |
 | SUBM-05 | Phase 4 | Pending |
-| SUBM-06 | Phase 1 | Complete |
+| SUBM-06 | Phase 1 | Gaps Found |
 | VERIFY-01 | Phase 4 | Pending |
 | VERIFY-02 | Phase 4 | Pending |
 | VERIFY-03 | Phase 4 | Pending |
@@ -114,10 +114,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DEDUP-01 | Phase 3 | Pending |
 | DEDUP-02 | Phase 3 | Pending |
 | DEDUP-03 | Phase 3 | Pending |
-| FEED-01 | Phase 1 | Complete |
+| FEED-01 | Phase 1 | Gaps Found |
 | FEED-02 | Phase 5 | Pending |
-| FEED-03 | Phase 1 | Complete |
-| FEED-04 | Phase 1 | Complete |
+| FEED-03 | Phase 1 | Gaps Found |
+| FEED-04 | Phase 1 | Gaps Found |
 | ENGAGE-01 | Phase 5 | Pending |
 | ENGAGE-02 | Phase 5 | Pending |
 | ENGAGE-03 | Phase 5 | Pending |

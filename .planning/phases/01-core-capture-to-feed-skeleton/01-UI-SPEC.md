@@ -130,7 +130,7 @@ No other element (links, icons, nav items, badges) uses the accent color — thi
 
 ## UI Considerations
 
-Applicable state considerations resolved: 16 covered, 4 backstop, 0 unresolved
+Applicable state considerations resolved: 17 covered, 4 backstop, 0 unresolved
 
 | Category | Element(s) | Status | Resolution / Reason |
 |----------|------------|--------|---------------------|
@@ -144,6 +144,7 @@ Applicable state considerations resolved: 16 covered, 4 backstop, 0 unresolved
 | empty | Feed card photo (media) | 🧪 backstop | If a photo fails to load (broken R2 URL/CDN issue), render a placeholder tile using the category color + icon instead of a broken-image icon — untested until execution; verify with a forced-404 image URL |
 | loading | Feed card photo (media) | ✅ covered | Next.js `<Image>` blur/placeholder while the photo loads |
 | loading | Camera capture flow (media/interactive-control) | ✅ covered | "Starting camera…" state (spinner over dark video frame) shown until `getUserMedia` stream is ready |
+| populated | Camera capture flow (media/interactive-control) | ✅ covered | On a successful capture, the live camera view is replaced by a static preview of the just-captured photo (carrying the D-02 burned-in geotag/timestamp overlay) and the live stream is stopped; the capture control shows a distinct "Photo captured — Retake?" state; tapping Retake restarts the live camera and clears the pending photo (implemented in `CameraCapture.tsx`, G-01-9) |
 | error | Camera capture flow (media) | ✅ covered | Camera permission denied → hard-block screen per Copywriting Contract (D-03); no degraded fallback path |
 | error | GPS capture (interactive-control) | ✅ covered | Location permission denied → hard-block screen per Copywriting Contract (D-03); no degraded fallback path |
 | loading | GPS wait-for-fix (interactive-control) | ✅ covered | Brief "Getting your location…" indicator during the 3-5s wait-for-fix window (D-04); does not block submission past the window |
