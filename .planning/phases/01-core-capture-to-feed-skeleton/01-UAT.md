@@ -3,12 +3,12 @@ status: diagnosed
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-26T02:30:00Z"
+updated: "2026-07-26T03:00:00Z"
 ---
 
 ## Current Test
 
-[testing paused — 2 items outstanding: tests 2 and 5 remain skipped with no reason recorded]
+[testing paused — 3 items outstanding: tests 2 and 5 remain skipped with no reason recorded; test 9's original double-tap intent is now unblocked and needs a real re-run since Plan 01-10 code-fixed the G-01-9 symptom that was blocking it]
 
 ## Tests
 
@@ -62,8 +62,8 @@ result: pass
 ### 9. Rapid double-tap Publish cannot create two complaints
 
 expected: On the /capture page, after a photo is captured and a category chosen, tap "Publish Report" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op.
-result: issue
-reported: "after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
+result: pending
+reason: "The blocking symptom originally reported here (no post-capture feedback, camera still live) was G-01-9 — code-fixed by Plan 01-10 (static preview + stream-stop + distinct 'Photo captured — Retake?' control). Verified automatically: full capture e2e spec 7/7 (incl. new G-01-9 preview/Retake test), tsc clean, lint clean, no regression to the happy path or Plan 01-05's denial hard-block. This test's ORIGINAL intent — the double-tap-Publish race guard (publishPhase !== \"idle\" single-flight guard in src/app/capture/page.tsx) — was never actually exercised, since the G-01-9 symptom blocked ever reaching a clean Publish-enabled state. Now unblocked; needs a human to actually attempt the rapid double-tap on a real device/browser and confirm exactly one complaint is created."
 severity: major
 
 ## Summary
@@ -71,8 +71,8 @@ severity: major
 total: 9
 passed: 4
 resolved: 2
-issues: 1
-pending: 0
+issues: 0
+pending: 1
 skipped: 2
 blocked: 0
 
@@ -80,7 +80,7 @@ blocked: 0
 
 - gap_id: G-01-9
   truth: "On the /capture page, after a photo is captured and a category chosen, tap \"Publish Report\" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op."
-  status: failed
+  status: code_fix_landed_pending_human_recheck
   reason: "User reported: after capturing the photo, there is still live camera and not feedback or photo which was captured is being shown"
   severity: major
   test: 9
@@ -95,6 +95,7 @@ blocked: 0
     - "Give captureLabel a distinct state for 'captured' (e.g. \"Photo captured — Retake?\") so the button itself signals success"
     - "Add a 01-UI-SPEC.md state-table entry for this post-capture 'populated' state to close the design-contract gap"
   debug_session: ".planning/debug/capture-preview-not-shown-after-photo.md"
+  code_fix: "Plan 01-10: CameraCapture.tsx now shows a static overlaid preview (data-testid=\"capture-preview\") over the always-mounted <video>, stops the live stream on successful upload, and shows a distinct \"Photo captured — Retake?\" control (data-testid=\"retake-button\") whose Retake path clears the preview, restarts the camera, and disables Publish again. 01-UI-SPEC.md gained the matching 'populated' state row. Verified via a new RED-then-GREEN e2e test plus the full pre-existing capture spec (7/7 pass, no regression to Plan 01-05's denial hard-block), tsc --noEmit clean, lint clean. NOT yet confirmed live on a real device/browser — that recheck is what keeps this gap open."
 
 - gap_id: G-01-EXTRA-2
   truth: "The home/feed page loads via server rendering as designed, without falling back to client-side rendering due to a module resolution error."
