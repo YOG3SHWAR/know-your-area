@@ -104,6 +104,37 @@ test("category picker renders uniform-width chips (G-01-4)", async ({ page }) =>
   }
 });
 
+// G-01-9: after capture, the live camera view must be replaced by a static
+// preview of the captured photo (with its burned-in overlay) and the
+// capture control must show a distinct "Photo captured — Retake?" state
+// rather than reverting to "Capture Photo". Retake restores the live camera
+// and clears the pending photo (Publish disabled again). This proves the
+// missing-feedback gap reported in UAT test 9 is closed without regressing
+// the happy path, denial hard-blocks, or the escalation paths above.
+test("capture shows a static preview and a distinct captured/Retake control (G-01-9)", async ({
+  page,
+}) => {
+  await page.goto("/capture");
+
+  await page.getByRole("button", { name: "Pothole/Road damage" }).click();
+  await page.getByRole("button", { name: "Capture Photo" }).click();
+
+  // Preview appears immediately on capture — the live camera view no longer
+  // occupies the media area.
+  await expect(page.getByTestId("capture-preview")).toBeVisible();
+
+  // Captured state signalled once upload completes: distinct control +
+  // Publish enabled (photoKey set).
+  await expect(page.getByTestId("retake-button")).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByRole("button", { name: "Publish Report" })).toBeEnabled();
+
+  // Retake restores the live camera and clears the pending photo.
+  await page.getByTestId("retake-button").click();
+  await expect(page.getByTestId("capture-preview")).toHaveCount(0);
+  await expect(page.getByTestId("camera-preview")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Publish Report" })).toBeDisabled();
+});
+
 // G-01-3: on a browser whose Permissions API does not proactively report
 // `denied` up front (Safari never does for "camera"; every browser reports
 // "prompt" on a first visit), PermissionGate's proactive check alone cannot
