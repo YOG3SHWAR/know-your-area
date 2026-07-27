@@ -1,74 +1,78 @@
 ---
 phase: 01-core-capture-to-feed-skeleton
-verified: 2026-07-26T01:40:00Z
-status: human_needed
-score: 18/18 must-haves verified (programmatically checkable); 0 failed; 3 items remain human-verification (2 pre-flagged real-device backstop checks still skipped, 1 concurrency invariant present-by-construction but unexercised)
-behavior_unverified: 1
+verified: 2026-07-27T22:00:00Z
+status: gaps_found
+score: 19/22 must-haves verified (19 VERIFIED, 2 FAILED, 1 human-only/infra-pending)
+behavior_unverified: 0
 overrides_applied: 0
 re_verification:
-  previous_status: gaps_found
-  previous_score: 16/18 (1 failed: residual CR-01 overlay 3+-line truncation trigger)
+  previous_status: human_needed
+  previous_score: 17/18 (prior pass, before plan 01-11 landed)
   gaps_closed:
-    - "D-02 residual CR-01 trigger (3+ physical lines needed to wrap, e.g. a long GPS-accuracy value): wrapOverlayLines now always leaves a visible '…' on the last retained line whenever a break-truncation occurs, instead of silently discarding the dangling fragment. Independently re-verified: read src/lib/overlay.ts directly (truncated flag set at the break site; post-loop append skipped when truncated; ellipsis branch now fires on `truncated || measuredWidth > maxWidth`); ran tests/unit/overlay.test.ts (11/11 pass, including the new residual-CR-01 content-based assertion and a no-false-signal guard case); independently re-implemented wrapOverlayLines verbatim in a standalone Node script (not trusting the test file's own assertions) and ran it against both the residual reproduction case and the original CR-01 case — residual case now ends its last line with '…', original case still retains '14:03'/'2026' with no spurious ellipsis."
-  gaps_remaining: []
+    - "G-01-2 (code half only — see gaps_remaining for the infra half): the upload catch block in src/components/capture/CameraCapture.tsx no longer reflects the raw thrown/network error (e.g. Safari's 'Load failed' TypeError from a CORS-blocked cross-origin PUT) into the UI. Independently re-verified (not trusted from SUMMARY.md): read the current catch block directly — it unconditionally sets a fixed sanitized string 'Couldn't upload the photo. Check your connection and try again.' with data-testid=\"capture-error\", removing the prior `err instanceof Error ? err.message : ...` branch entirely. Ran the new e2e test tests/e2e/capture.spec.ts:210 myself against a freshly-confirmed dev server — passed (5.3s), using a page.route stub-then-abort chain against a fabricated r2.cloudflarestorage.com host (hermetic, no live R2 credentials). Ran the full capture.spec.ts (8/8) and the full e2e suite (15/15 across capture/feed/permalink/search) — no regressions. README.md's CORS section (grep-confirmed) now documents https://knowyourarea.in and the wrangler cors set/list commands alongside localhost."
+    - "The double-tap-Publish race (previously ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, human_verification item) is now closed: 01-UAT.md's test 9 ('Rapid double-tap Publish cannot create two complaints') records result: pass, run by a human after G-01-9's fix made the step reachable. No code change was needed; this closes the human-verification gap from the prior pass."
+  gaps_remaining:
+    - "G-01-2's infra half (R2 bucket CORS AllowedOrigins actually updated to include https://knowyourarea.in) and its live-production real-device confirmation are both still open — see human_verification below. This was always declared as `user_setup`/human-only in 01-11-PLAN.md (the coding agent has no R2 credentials) and is not a code gap."
   regressions: []
-gaps: []
+gaps:
+  - truth: "submitComplaint (src/actions/submit-complaint.ts) never leaks a raw DB/driver error message to the client on any insert failure other than a unique-violation retry."
+    status: failed
+    reason: "This project has three prior, explicit precedents treating 'raw error text reaching the UI' as an Information-Disclosure threat requiring mitigation: T-01-07 (CameraCapture camera/geolocation errors, Plan 01-05), T-01-09 (feed route errors, Plan 01-06), and T-01-11-02 (upload-catch errors, this very re-verification's Plan 01-11). submit-complaint.ts's insert retry loop was never given the same treatment: any DB failure other than a unique-violation (connection reset, timeout, pool exhaustion, an unexpected constraint violation) is rethrown as-is via `throw err` (line 70) and `throw lastError` (line 74-76). Because this is a Next.js Server Action, the thrown Error's raw `.message` propagates to the caller, and src/app/capture/page.tsx:61-64 renders it directly: `err instanceof Error ? err.message : \"Couldn't publish your report...\"`. This was independently confirmed by reading both files directly at HEAD (not inferred from any SUMMARY.md), and is also flagged as CR-01 (Critical, information disclosure) in this phase's own 01-REVIEW.md (re-run at HEAD 12fdf3f, 2026-07-27) — a finding with no corresponding entry in 01-REVIEW-FIX.md (only one fix pass has ever run, on 2026-07-23, addressing an unrelated, earlier CR-01 about photo-existence checking). git log confirms neither file has been touched since Plan 01-03 (submit-complaint.ts, commit 5581dd3) / Plan 01-02 (capture/page.tsx), so this is not a regression introduced by Plan 01-10 or 01-11 — it is a pre-existing gap in the established sanitization pattern that a fresh review pass surfaced and that 01-11's own G-01-2 fix (for the sibling upload-error path) did not happen to touch."
+    artifacts:
+      - path: "src/actions/submit-complaint.ts"
+        issue: "Lines 67-76: the insert retry loop's catch block only special-cases isUniqueViolation(err); every other error is rethrown verbatim (`throw err` / `throw lastError`), letting raw Postgres/driver error text escape the Server Action boundary."
+      - path: "src/app/capture/page.tsx"
+        issue: "Lines 61-64: `setError(err instanceof Error ? err.message : \"Couldn't publish your report...\")` renders whatever submitComplaint threw directly into the UI's destructive-error paragraph, with no sanitization layer."
+    missing:
+      - "In submit-complaint.ts's catch block, log the real error server-side (`console.error(\"submitComplaint insert failed\", err)`) and throw a single fixed, sanitized Error (e.g. \"Couldn't publish your report. Check your connection and try again.\") for any non-unique-violation failure, mirroring the pattern already used for camera/geolocation (T-01-07) and upload (T-01-11-02) errors in CameraCapture.tsx and for the feed route (T-01-09)."
+      - "A test (unit or e2e) that forces a non-unique-violation DB failure and asserts the UI shows only the fixed sanitized string, never a raw driver/DB error."
+
+  - truth: "A missing/404 photo on the permalink page (/c/[id]) renders the same category-colored placeholder tile with an icon that FeedCard already provides — not a bare broken-image box (FEED-04, matches the phase's own stated must-have for 'feed/permalink')."
+    status: failed
+    reason: "The prior VERIFICATION.md's human_verification item #2 explicitly described this must-have as covering both 'the feed/permalink', and 01-UAT.md's test 5 ('Forced photo 404 renders a placeholder, not a broken image') is recorded as result: pass. Independently reading the actual permalink page source at HEAD contradicts that pass for the permalink surface specifically: src/app/c/[id]/page.tsx's <Image> (lines ~74-83) has no onError handler, no imgError state, and no fallback UI of any kind — a missing/expired photo_key renders Next.js's default broken-image box. FeedCard.tsx (src/components/feed/FeedCard.tsx:41-70), by contrast, implements exactly this pattern: an imgError state, onError={() => setImgError(true)}, and a CATEGORY_TILE_STYLES-colored tile with an icon when it fires — explicitly commented as a 'UI-SPEC backstop item' for a broken/404 image URL. This asymmetry is also independently flagged as WR-08 in the current 01-REVIEW.md (re-run at HEAD 12fdf3f), which notes the permalink page is 'arguably the more important, publicly-shared surface' since it is FEED-04's actual shareable-link artifact. git log confirms src/app/c/[id]/page.tsx has been unchanged since its original Plan 01-04 commit (e6cf993) — this is a real, pre-existing gap that 01-UAT.md's test 5 likely validated against the feed card only, not the permalink page specifically."
+    artifacts:
+      - path: "src/app/c/[id]/page.tsx"
+        issue: "The <Image> at lines ~74-83 has no onError handling or category-tile fallback, unlike FeedCard.tsx's imgError pattern — a missing/404 photo_key on a shared permalink renders a bare broken-image box."
+    missing:
+      - "Add the same imgError-state + CATEGORY_TILE_STYLES fallback pattern to the permalink page's photo block, or extract a shared PhotoTile component consumed by both FeedCard and the permalink page (the fix WR-08 itself suggests)."
+      - "A test (e2e or component) that forces a 404 photo on the permalink route specifically and asserts the category-tile fallback renders, not a broken-image icon — distinct from the existing feed-card-only coverage."
 deferred: []
-behavior_unverified_items:
-  - truth: "Rapid double-tapping Publish cannot create two complaints (01-03-PLAN.md must-have, human_judgment)."
-    test: "On the /capture page, after a photo is captured and a category chosen, tap 'Publish Report' twice in rapid succession (near-simultaneous, faster than a render cycle)."
-    expected: "Exactly one complaint is created; the second tap is a no-op because publishPhase !== 'idle' guards handlePublish."
-    why_human: "The guard (`if (!photoKey || !category || publishPhase !== \"idle\") return;` in src/app/capture/page.tsx:37) is present and correct by construction, but no concurrency/race test (unit or e2e) exercises two near-simultaneous clicks — this is a state-transition/ordering invariant that a static read cannot prove holds under real double-tap timing. Unchanged since the prior verification cycle; not touched by plan 01-09."
+behavior_unverified_items: []
 human_verification:
-  - test: "On real iOS Safari, capture a photo in portrait orientation and confirm it is not rotated/skewed, and that the burned-in overlay text is upright, legible, and wraps/truncates gracefully at a narrow aspect ratio."
-    expected: "Correct orientation; overlay readable; no skew; and — now that the residual truncation gap is closed — a visible '…' must appear if the overlay wraps past 2 lines on a narrow real device, never a silently-clean-looking-but-incomplete line."
-    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run. Status: SKIPPED in 01-UAT.md (test 2) — still open. Unchanged by plan 01-09."
-  - test: "Force a photo URL to 404 (e.g. edit a card's photo_key to a nonexistent key) and confirm the feed/permalink renders a category-colored placeholder tile with an icon, not a broken-image icon."
-    expected: "Category-colored tile with icon renders in place of the broken image."
-    why_human: "Status: SKIPPED in 01-UAT.md (test 5) — still open. No automated test forces a live photo 404 against the real R2 bucket. Unchanged by plan 01-09."
-  - test: "On the /capture page, tap 'Publish Report' twice in rapid succession and confirm only one complaint is created."
-    expected: "Exactly one complaint created; second tap is a no-op."
-    why_human: "See behavior_unverified_items above — code guard present, no concurrency test exists."
+  - test: "After a human with Cloudflare R2 credentials adds https://knowyourarea.in (and active Vercel preview origins) to the R2 bucket's CORS AllowedOrigins per README.md's updated instructions (wrangler r2 bucket cors set, verified via wrangler r2 bucket cors list), open https://knowyourarea.in/capture on a real phone browser, grant camera + location, capture a photo, and pick a category."
+    expected: "The captured-photo preview appears with no error text, the upload succeeds, and Publish Report becomes enabled and publishes to the feed — closing G-01-2 end-to-end (its infra half; the code half — sanitized error message — is already verified above)."
+    why_human: "This is real infrastructure state outside git (R2 bucket CORS policy) that the coding agent has no credentials to change, and its effect can only be observed against the live production origin — it cannot be reproduced on localhost or in Playwright (both origins were always CORS-allowed). Declared explicitly as `user_setup` + a designated human-check in 01-11-PLAN.md."
+  - test: "On real iOS Safari, capture a photo in portrait orientation (only reachable once the item above is unblocked) and confirm it is not rotated/skewed, the burned-in overlay text is upright and legible, and it wraps/truncates gracefully at a narrow aspect ratio (with a visible '…' if truncation occurs)."
+    expected: "Correct orientation; overlay readable; no skew; visible truncation signal if the overlay wraps past the line cap on a narrow real device."
+    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run (fake media device has no real sensor/orientation data). 01-UAT.md's test 2 (this exact check) was blocked by the G-01-2 CORS bug before the tester could even see a captured photo on production — recorded as result: issue, not a genuine orientation/legibility finding. This check has never actually been completed and must be re-attempted once the CORS fix (above) is applied and confirmed."
 ---
 
 # Phase 1: Core Capture-to-Feed Skeleton Verification Report
 
 **Phase Goal:** Prove the riskiest end-to-end loop — a user can capture a live, geo-tagged photo, pick a category, publish it, and anyone can see it in a nearby feed and open it directly by its unique ID or permalink. Auth is a stub dev-identity; no geocoding, dedup, blurring, or AI yet.
 
-**Verified:** 2026-07-26T01:40:00Z
-**Status:** human_needed
-**Re-verification:** Yes — after plan 01-09 (gap closure, round 3) closed the residual CR-01 overlay truncation trigger
+**Verified:** 2026-07-27T22:00:00Z
+**Status:** gaps_found
+**Re-verification:** Yes — the prior `01-VERIFICATION.md` (`human_needed`, 17/18, written after plan 01-10) predates plan 01-11 (gap closure for G-01-2: production R2 CORS + upload-error sanitization). This pass fully re-verifies the whole phase against the current codebase (not just plan 01-11's delta), per the standard goal-backward methodology, and independently discovered two new gaps not previously surfaced by any SUMMARY.md or UAT round.
 
-## Re-Verification Summary
+## MVP Mode Note
 
-This is the fourth full verification pass for Phase 1. The third pass (`status: gaps_found`, 2026-07-26T00:20:00Z) found the sole remaining blocking gap: `wrapOverlayLines` in `src/lib/overlay.ts` still silently dropped the burned-in geotag/timestamp overlay when the formatted text needed 3+ physical lines to wrap (e.g. a long/imprecise GPS accuracy value like `±123457m`), even though plan 01-08 had genuinely fixed the original 2-line trigger. Plan 01-09 was executed to close this residual trigger.
+ROADMAP.md marks this phase `Mode: mvp`, but the phase goal text is a capability narrative, not the literal `As a [role], I want [capability], so that [outcome].` format (`gsd_run query user-story.validate` would return `valid: false`). All prior verification passes for this phase applied standard goal-backward verification, not the MVP User-Flow-Coverage format. Continuing that established precedent here for consistency across the phase's verification history.
 
-**Independent re-verification of plan 01-09's claim (not trusted from SUMMARY.md):**
+## Re-Verification Summary (this pass, independent of SUMMARY.md claims)
 
-1. Read `src/lib/overlay.ts` directly. Confirmed: a `truncated` boolean is now set at the loop's `break` site (`lines.length >= OVERLAY_MAX_LINES`); the post-loop `if (current) lines.push(current)` only runs `if (!truncated && current)`, so a doomed fragment from a break-truncation is never appended; the ellipsis branch condition was broadened from `ctx.measureText(last).width > maxWidth` to `truncated || ctx.measureText(last).width > maxWidth`, so a break-truncation always routes the last retained line through the visible-`…`-signal path. `formatOverlayText`, `drawOverlay`, `OVERLAY_MAX_LINES`, and the `wrapOverlayLines` signature/export are unchanged.
-2. Ran `tests/unit/overlay.test.ts` directly (not trusting SUMMARY.md's claimed pass) — 11/11 pass, including the new residual-CR-01 content-based assertion (`.endsWith("…")`) for the long-accuracy 3+-line input, a strengthened content-based 2-line-cap case, a new no-false-signal guard (clean 2-line wraps are not over-ellipsized), and the preserved original CR-01 2-line regression (last line still contains `"14:03"`/`"2026"`, no spurious ellipsis).
-3. Independently re-implemented `wrapOverlayLines` verbatim in a standalone Node script (byte-for-byte from the current source, not trusting the test file's own assertions) and ran it against four cases:
-   - Residual reproduction (`"...±123457m... 2026, 14:03"` at width 20) → `["12.9716, 77.5946 ·", "±123457m · 23 Jul…"]` — **timestamp is gone, but the last line now ends with a visible "…"**, matching the plan's stated intent (a truncation signal, not silent loss).
-   - Original CR-01 case (`"...±18m... 2026, 14:03"` at width 23) → `["12.9716, 77.5946 · ±18m", "· 23 Jul 2026, 14:03"]` — timestamp fully retained, no spurious ellipsis. **01-08's fix is not re-broken.**
-   - Clean 2-line wrap (`"aaaa bbbb cccc dddd"` at width 9) → `["aaaa bbbb", "cccc dddd"]` — no over-ellipsizing.
-   - Single unbreakable long word → correctly ellipsized to fit `maxWidth`.
-   All four independently hand-executed results match the plan's acceptance criteria exactly. **The residual CR-01 trigger is genuinely fixed.**
-4. Ran the full unit suite (`npx vitest run`) — 35/35 pass (6 files, up from 33/33 in the prior pass — 2 new assertions from plan 01-09). Ran `npx tsc --noEmit` — exits 0. Ran `npx eslint src/lib/overlay.ts tests/unit/overlay.test.ts` — no errors in either touched file.
-5. `git diff --stat` between the prior verification's HEAD (`f68a035`) and this pass's HEAD confirms only `src/lib/overlay.ts`, `tests/unit/overlay.test.ts`, and planning-doc artifacts changed — no other previously-verified artifact could have regressed.
-
-**Conclusion: the D-02 must-have — "the overlay's timestamp is never silently dropped without a visible signal" — is now fully satisfied.** Both the original 2-line trigger (01-08) and the residual 3+-line trigger (01-09) are closed and regression-locked with content-based (not length-only) unit assertions.
-
-## Investigation: orchestrator-reported "Publish Report never enables" e2e failures (this pass's own finding, not carried from a prior VERIFICATION.md)
-
-The orchestrator reported that on a first e2e run all 13 specs failed against a **stale, version-mismatched leftover dev server** (Next.js v15.1.11 bound to port 3000, vs. the current v15.5.21) that Playwright's `reuseExistingServer: !process.env.CI` reused instead of starting fresh. A subsequent diagnostic re-run on a temporary alternate port got 7/13 passing, with 5 failures attributed to "Publish Report never becomes enabled within 20s" across `capture.spec.ts`, `feed.spec.ts`, `permalink.spec.ts`, and `search.spec.ts` (all of which seed their test data via the full capture→GPS-fix→publish flow), plus 1 failure attributed to a hardcoded-port assertion artifact of the diagnostic itself.
-
-This verification independently investigated rather than deferring to that framing:
-
-1. **Confirmed the same stale-server condition still existed** at the start of this verification pass: `lsof -i :3000` showed a `next-server (v15.1.11)` process still bound to port 3000, mismatched against the current `package.json` version (15.5.21). This is a genuine environment artifact, not a code defect.
-2. **Killed the stale process**, started a genuinely fresh `npm run dev` (confirmed via startup banner: `Next.js 15.5.21`), waited for it to serve `200` on `http://localhost:3000`, then ran `npx playwright test` **twice in a row** using the project's own **unmodified, committed** `playwright.config.ts` (canonical port 3000, no temporary alt-port workaround).
-3. **Result both times: 13/13 passed**, including `capture flow: live camera + GPS produces a published complaint (SUBM-01, SUBM-03)` — the exact test that exercises the "Publish Report" enable path — completing comfortably within its 20s timeout (16.4s total test duration on the first run, 12.2s on the second; the actual Publish-enable wait is a subset of that). The proximity-ranking, permalink, and search-by-ID tests (which depend on that same publish flow to seed data) also passed cleanly both runs (12-29s each, no timeouts).
-4. **Conclusion: the "Publish Report never enables" failures were an artifact of the orchestrator's own diagnostic environment** (most plausibly the stale/mismatched leftover server still partially interfering, and/or the temporary alt-port config's own webServer reuse/timing behavior) — **not a reproducible product defect**, and not a genuine gap against SUBM-01, FEED-01, FEED-03, or FEED-04. This is independently confirmed by direct, repeated, from-scratch execution against the actual current source on the canonical configuration — not by trusting either the orchestrator's or SUMMARY.md's characterization. No human_verification item is warranted for this concern; it does not overlap with any of the 3 pre-existing, still-open human-verification items (iOS Safari real-device orientation, forced photo-404 placeholder, double-tap race), all of which concern genuinely different, real-device-only behaviors that a headless Chromium run cannot exercise regardless of server freshness.
-5. Cleaned up: killed the fresh dev server this verification started; confirmed `lsof -i :3000` is clear and `git status --porcelain` shows only the pre-existing, unrelated `.planning/config.json` diff — no stray state left behind.
+1. **Read `src/components/capture/CameraCapture.tsx`'s upload catch block directly at HEAD.** Confirmed the `err instanceof Error ? err.message : ...` branch that previously leaked raw browser/network error text has been removed entirely; the catch block now unconditionally sets `error` to the fixed string `"Couldn't upload the photo. Check your connection and try again."` and adds `data-testid="capture-error"` to the destructive error `<p>`.
+2. **Read `tests/e2e/capture.spec.ts`'s new G-01-2 test directly (lines 198-236).** Confirmed it is a genuine forced-failure test: it stubs `POST /api/upload-url` to return a fabricated `r2.cloudflarestorage.com` presigned URL, then `route.abort()`s the PUT to that host (the same network-error class a real CORS block produces), then asserts `getByTestId("capture-error")` has the exact sanitized text and `Publish Report` stays disabled.
+3. **Read `README.md`'s CORS section.** Confirmed it now documents `https://knowyourarea.in` (plus active Vercel preview origins) alongside `http://localhost:3000`, the exact `wrangler r2 bucket cors set`/`cors list` commands, the CLI-vs-dashboard JSON shape distinction, and an explicit no-wildcard caution.
+4. **Started a genuinely fresh dev server** (confirmed serving 200 on 5 consecutive `curl` checks) and **ran `npx playwright test tests/e2e/capture.spec.ts` myself** — 8/8 passed (18.0s), including the new G-01-2 test (5.3s) and the pre-existing G-01-9 preview/Retake test, both denial tests, both G-01-3 escalation tests, and the G-01-4 grid-layout test.
+5. **Ran the full `npx playwright test`** (all 15 specs across capture/feed/permalink/search) — 15/15 passed in 30.8s, confirming no regression to FEED-01 (proximity, 28.1s), FEED-03 (search-by-ID), or FEED-04 (permalink).
+6. **Ran `npx tsc --noEmit`** — exits 0, no output.
+7. **Ran `npx vitest run`** — 6 files, 35/35 passed.
+8. **Ran `npx eslint`** on the touched files (`CameraCapture.tsx`, `capture.spec.ts`, `README.md`) — zero errors (README shows an expected "no matching configuration" info notice, not an error — it's a Markdown file, not JS/TS).
+9. **Grepped for debt markers** (`TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER`) across `src/`/`tests/` — zero matches. Checked for `test.fixme()`/`test.skip()` — zero matches.
+10. **Read `01-UAT.md` in full.** Confirmed test 9 ("Rapid double-tap Publish cannot create two complaints") now records `result: pass` — this closes the prior pass's sole `⚠️ PRESENT_BEHAVIOR_UNVERIFIED` truth via genuine human confirmation, run after G-01-9's fix made the step reachable. No code change needed for this closure.
+11. **Read `01-REVIEW.md` at HEAD (commit `12fdf3f`, dated 2026-07-27) — a fresh code-review pass run after plan 01-11 landed.** Unlike the prior verification pass's cited review (`2ce171e`: 0 Critical/6 Warning/3 Info), the current review reports **1 Critical/12 Warning/7 Info**. Cross-checked the new Critical finding (CR-01: raw DB/internal error leak from `submitComplaint`) and one Warning finding (WR-08: permalink page has no broken-image fallback) directly against the live source — both independently confirmed as real, currently-unfixed issues (see Gaps below), not review noise. `git log` confirms neither implicated file (`src/actions/submit-complaint.ts`, `src/app/c/[id]/page.tsx`) has been touched since their original Plan 01-03/01-04 commits, so these are pre-existing gaps a more thorough review pass surfaced — not regressions introduced by Plan 01-10 or 01-11.
+12. **Confirmed via `git log --oneline e630d88..HEAD -- src/ tests/ README.md`** that only `CameraCapture.tsx`, `capture.spec.ts` (G-01-9 in Plan 01-10 + G-01-2 in Plan 01-11), and `README.md` (Plan 01-11) changed in source/test/docs code since the two-passes-ago baseline — no other previously-verified artifact could have regressed.
 
 ## Goal Achievement
 
@@ -76,56 +80,64 @@ This verification independently investigated rather than deferring to that frami
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | ✓ VERIFIED | Unchanged since prior pass (file not touched by plan 01-09); `CameraCapture.tsx` uses only `getUserMedia`; no `<input type="file">`/`capture=` in `src/`; e2e assertion `expect(page.locator('input[type="file"]')).toHaveCount(0)` passes |
-| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | ✓ VERIFIED | Unchanged since prior pass; `CategoryPicker.tsx`, `geolocation.ts` `captureBestFix`, `submissionSchema` untouched by plan 01-09 |
-| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | ✓ VERIFIED | `src/lib/feed.ts` untouched; e2e `feed.spec.ts` proximity-ranking test **actually executed this pass** (not just enumerated) — passed twice, in 24.8s and 28.8s |
-| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | ✓ VERIFIED | `src/lib/ids.ts`, `SearchById.tsx`, `c/[id]/page.tsx` untouched; `search.spec.ts` and `permalink.spec.ts` (known-ID, unknown-ID, full-URL-paste cases) **actually executed this pass** — all pass twice |
-| 5 | G-01-3: real-device permission denial (Safari/first-visit) hard-blocks with no submit path | ✓ VERIFIED | Unchanged since prior pass; `PermissionGate.tsx`/`CameraCapture.tsx` untouched by plan 01-09; e2e denial-escalation specs pass |
-| 6 | G-01-4: category picker renders as a uniform grid, not an uneven flex-wrap | ✓ VERIFIED | Unchanged since prior pass; `CategoryPicker.tsx` untouched; e2e grid-layout spec passes |
-| 7 | G-01-EXTRA-1: production feed loads real data, not a 500 | ✓ VERIFIED | Unchanged since prior pass; `db/client.ts`, `api/feed/route.ts` untouched by plan 01-09 |
-| 8 | The captured photo has a visible geotag + timestamp overlay burned onto the canvas, and a break-triggered truncation always leaves a visible "…" signal instead of silently dropping content (D-02, 01-03-PLAN.md must-have, closed by 01-08 + 01-09) | ✓ VERIFIED | Both the original 2-line trigger (01-08) and the residual 3+-line trigger (01-09) independently reproduced fixed this pass — see Re-Verification Summary items 1-3. `tests/unit/overlay.test.ts`'s `wrapOverlayLines` block: 11/11 pass, all content-based |
-| 9 | The internal serial `complaints.id` is never exposed in any URL/API/feed payload — only `public_id` (T-01-01 IDOR prohibition) | ✓ VERIFIED | Unchanged since prior pass; query surfaces untouched by plan 01-09 |
-| 10 | Poster identity (`submitter_id`) is never exposed on the feed or permalink (D-06 prohibition) | ✓ VERIFIED | Unchanged since prior pass |
-| 11 | Presigned-upload key/content-type are always server-derived, never client-supplied (T-01-02/T-01-03 prohibition) | ✓ VERIFIED | Unchanged since prior pass; `upload-url/route.ts` untouched |
-| 12 | The `complaints` table exists with a `geometry(point,4326)` location column, GiST index, and `public_id` UNIQUE constraint | ✓ VERIFIED | Unchanged since prior pass; `db/schema.ts` untouched |
-| 13 | Build/typecheck are clean on the current commit | ✓ VERIFIED | `npx tsc --noEmit` exits 0 (re-run this verification) |
-| 14 | The full unit test suite passes | ✓ VERIFIED | `npx vitest run` → 35/35 passed (6 test files, +2 since prior pass' 33/33 — new content-based `wrapOverlayLines` assertions) — re-run this verification |
-| 15 | The full e2e suite actually passes when run (not merely enumerates) | ✓ VERIFIED (upgraded from prior "enumerates cleanly" claim) | `npx playwright test` (real execution, not `--list`) run **twice** against a genuinely fresh, version-matched server on the canonical port — 13/13 pass both times (27-33s total). Prior verification passes only ever ran `--list`; this is the first pass to confirm actual green execution. See "Investigation" section above for why an orchestrator-reported failure did not reproduce. |
-| 16 | No debt markers (TODO/FIXME/XXX/TBD) or `test.fixme()` stubs remain in tracked source | ✓ VERIFIED | Repo-wide grep of `src/`/`tests/` found zero matches; targeted grep of the two files plan 01-09 touched also clean |
-| 17 | Rapid double-tapping Publish cannot create two complaints | ⚠️ PRESENT_BEHAVIOR_UNVERIFIED | Unchanged since prior pass; guard present and correct by construction (`src/app/capture/page.tsx:37`), no concurrency test exercises the race |
-| 18 | All 7 declared requirement IDs (SUBM-01/02/03/06, FEED-01/03/04) are marked Complete in REQUIREMENTS.md and traced to Phase 1 | NOT YET FLIPPED (expected while human_needed) | `.planning/REQUIREMENTS.md`'s Traceability table still shows all 7 as "Gaps Found" — consistent with `status: human_needed` (not yet `passed`), since 3 human-verification items remain open. Not a regression; expected to flip once those items clear. |
+| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | VERIFIED | `CameraCapture.tsx` uses only `getUserMedia`; no `<input type="file">`/`capture=` anywhere in `src/`; happy-path e2e test passes |
+| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | VERIFIED | `CategoryPicker.tsx`, `geolocation.ts`'s `captureBestFix`, server-side `submissionSchema` re-validation unchanged; happy-path e2e test passes end-to-end |
+| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | VERIFIED | `src/lib/feed.ts` untouched; `feed.spec.ts` proximity-ranking e2e test executed this pass — passed (28.1s) |
+| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | VERIFIED | `src/lib/ids.ts`, `SearchById.tsx`, `c/[id]/page.tsx` untouched; `search.spec.ts`/`permalink.spec.ts` executed this pass — all pass |
+| 5 | G-01-3: real-device permission denial hard-blocks with no submit path | VERIFIED | Denial-escalation branches unchanged; e2e denial + escalation specs pass |
+| 6 | G-01-4: category picker renders as a uniform grid | VERIFIED | `CategoryPicker.tsx` untouched; e2e grid-layout spec passes |
+| 7 | G-01-EXTRA-1: production feed loads real data, not a 500 | VERIFIED | `db/client.ts` untouched by 01-11 |
+| 8 | Burned-in geotag/timestamp overlay with visible "…" truncation signal (D-02) | VERIFIED | `src/lib/overlay.ts` untouched; `overlay.test.ts` 11/11 pass |
+| 9 | Internal serial `complaints.id` never exposed (T-01-01 IDOR) | VERIFIED | Query surfaces unchanged; re-confirmed via grep |
+| 10 | Poster identity (`submitter_id`) never exposed (D-06) | VERIFIED | Unchanged; re-confirmed via grep |
+| 11 | Presigned-upload key/content-type always server-derived (T-01-02/T-01-03) | VERIFIED | `upload-url/route.ts` untouched |
+| 12 | `complaints` table has `geometry(point,4326)`, GiST index, `public_id` UNIQUE | VERIFIED | `db/schema.ts` untouched |
+| 13 | Build/typecheck clean | VERIFIED | `npx tsc --noEmit` exits 0 (re-run this pass) |
+| 14 | Full unit test suite passes | VERIFIED | `npx vitest run` → 35/35, 6 files (re-run this pass) |
+| 15 | Full e2e suite passes when run | VERIFIED | `npx playwright test` (15 specs) → 15/15 in 30.8s, fresh server (re-run this pass) |
+| 16 | No debt markers or `test.fixme()`/`test.skip()` stubs in tracked source | VERIFIED | Repo-wide grep found zero matches (re-run this pass) |
+| 17 | G-01-9: post-capture static preview + stream-stop + Retake | VERIFIED | `capture.spec.ts` state-transition test still passes this pass; source unchanged since last verified |
+| 18 | Rapid double-tapping Publish cannot create two complaints | VERIFIED | Previously `⚠️ PRESENT_BEHAVIOR_UNVERIFIED` — now closed: `01-UAT.md` test 9 records `result: pass`, a genuine human confirmation run after G-01-9's fix made the step reachable |
+| 19 | Upload-error UI shows one fixed sanitized message; never reflects raw browser/network error text (closes G-01-2's code half) | VERIFIED | `CameraCapture.tsx` catch block reads exactly `"Couldn't upload the photo. Check your connection and try again."` unconditionally; new e2e test (`capture.spec.ts:210`) forces a CORS-class failure via `page.route` abort and passes; ran it myself this pass |
+| 20 | On production (https://knowyourarea.in), on a real device, capture→upload→publish completes (closes G-01-2's infra half) | NOT VERIFIABLE BY VERIFIER (human-only, infra) | R2 bucket CORS AllowedOrigins update requires credentials the coding agent does not have; live confirmation requires a real phone against the live origin. Declared explicitly as `user_setup` + designated human-check in `01-11-PLAN.md`. Routed to Human Verification, not counted verified or failed. |
+| 21 | `submitComplaint` never leaks a raw DB/driver error message to the client on any insert failure | ✗ FAILED | `src/actions/submit-complaint.ts:67-76` rethrows any non-unique-violation error verbatim (`throw err`/`throw lastError`); `src/app/capture/page.tsx:61-64` renders `err.message` directly. Confirmed by direct source read and matches this phase's own established sanitization pattern (T-01-07, T-01-09, T-01-11-02) applied everywhere except here. Also independently flagged as CR-01 (Critical) in `01-REVIEW.md` at HEAD, unfixed. |
+| 22 | Permalink page (`/c/[id]`) shows the same category-placeholder tile as the feed card on a 404/missing photo, not a broken-image box | ✗ FAILED | `src/app/c/[id]/page.tsx`'s `<Image>` has no `onError` handler or fallback of any kind (confirmed by direct source read), unlike `FeedCard.tsx`'s `imgError` pattern. Contradicts `01-UAT.md` test 5's recorded `pass` for this must-have when applied to the permalink surface specifically. Also independently flagged as WR-08 in `01-REVIEW.md` at HEAD, unfixed. |
 
-**Score:** 17/18 truths verified (16 VERIFIED + 1 not separately counted as behavior-unverified). 0 FAILED. 1 PRESENT_BEHAVIOR_UNVERIFIED (double-tap race). Truth #18 tracked separately as an expected consequence of `human_needed`, not a defect.
+**Score:** 19/22 truths VERIFIED. 2 FAILED (new gaps this pass). 1 not verifiable by the verifier (human-only infra confirmation, routed to Human Verification).
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/lib/overlay.ts` | `formatOverlayText` + `wrapOverlayLines` + `drawOverlay` burn-in, no silent content loss under any trigger | ✓ VERIFIED (fully fixed) | Both known truncation triggers (2-line and 3+-line) now guaranteed to leave a visible "…" signal; independently hand-verified against 4 cases (see Re-Verification Summary #3). `formatOverlayText`/`drawOverlay`/`OVERLAY_MAX_LINES`/export unchanged. |
-| `tests/unit/overlay.test.ts` | Content-based coverage of `wrapOverlayLines`, not just length checks | ✓ VERIFIED | `describe("wrapOverlayLines")` block now has 5 assertions, all content-based (`.endsWith("…")` / substring checks), including a no-false-signal guard against over-ellipsizing clean output — closing the prior pass's noted test-coverage gap. |
-| All other artifacts from prior passes (`src/lib/db/schema.ts`, `src/lib/db/client.ts`, `src/app/api/feed/route.ts`, `PermissionGate.tsx`, `CameraCapture.tsx`, `CategoryPicker.tsx`, `src/lib/feed.ts`, `FeedCard.tsx`/`FeedList.tsx`, `c/[id]/page.tsx`/`not-found.tsx`, `src/app/capture/page.tsx`) | Unchanged | ✓ VERIFIED (regression check) | `git diff --stat` between the prior verification's HEAD (`f68a035`) and this pass's HEAD confirms only `src/lib/overlay.ts`, `tests/unit/overlay.test.ts`, and planning-doc files changed. |
+| `src/components/capture/CameraCapture.tsx` | Sanitized upload-error message, `data-testid="capture-error"` | VERIFIED | Confirmed via direct read (Re-Verification Summary #1) |
+| `tests/e2e/capture.spec.ts` | New forced-upload-failure test (G-01-2); all pre-existing specs pass | VERIFIED | 8/8 pass, including the new test |
+| `README.md` | CORS setup documents the production origin + wrangler commands | VERIFIED | `grep -n 'knowyourarea' README.md` confirms; read in full |
+| `src/actions/submit-complaint.ts` | Should sanitize non-unique-violation errors before they reach the client (established pattern, not yet applied here) | ✗ MISSING SANITIZATION | Rethrows raw errors verbatim; see Gap 1 |
+| `src/app/c/[id]/page.tsx` | Should render a category-placeholder fallback on photo 404, matching `FeedCard.tsx` | ✗ MISSING FALLBACK | No `onError` handling at all; see Gap 2 |
+| All other artifacts from prior passes | Unchanged | VERIFIED (regression check) | `git log --oneline e630d88..HEAD -- src/ tests/ README.md` confirms only `CameraCapture.tsx`, `capture.spec.ts`, and `README.md` changed since the two-passes-ago baseline |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|----|--------|---------|
-| `CameraCapture.tsx` | `overlay.ts` | `drawOverlay(ctx,...)` before `canvas.toBlob` | ✓ WIRED | Call order confirmed unchanged at `CameraCapture.tsx:124`/`overlay.ts:128` (`drawOverlay` internally calls `wrapOverlayLines`) |
-| `wrapOverlayLines` | `drawOverlay`'s bar-height/line-render loop | Return value drives `lines.length * lineHeight` and `lines.forEach(...)` rendering | ✓ WIRED | Confirmed in source (`overlay.ts:130-140`) — the fixed return value (now always signal-complete) is faithfully rendered |
-| `CapturePage.handlePublish` | `submitComplaint` server action | `publishPhase !== "idle"` single-flight guard, then `await submitComplaint(...)` | ✓ WIRED (present-by-construction; behavior-unverified for the double-tap race specifically) | `src/app/capture/page.tsx:37` |
-| All other key links from prior passes | — | — | ✓ VERIFIED (regression check, files untouched) | Confirmed unaffected via the same `git diff --stat` scoping evidence above |
+| `CameraCapture` upload catch block | `capture-error` UI text | Fixed sanitized string, unconditional | VERIFIED | e2e test asserts the exact sanitized text after a forced failure |
+| Browser → R2 (presigned PUT) | R2 bucket CORS policy | `AllowedOrigins` must include `https://knowyourarea.in` | NOT VERIFIABLE (infra, human-only) | Cannot be checked from the repo; this is Cloudflare dashboard/API state |
+| `submitComplaint` catch block | Client-facing error text | ✗ NOT SANITIZED — raw `err`/`lastError` propagates through the Server Action boundary to `page.tsx`'s `setError(err.message)` | NOT_WIRED (missing sanitization layer) | See Gap 1 |
+| `c/[id]/page.tsx`'s `<Image>` | Category-placeholder fallback | ✗ NO LINK — no `onError` handler exists | NOT_WIRED | See Gap 2 |
+| All other key links from prior passes | — | — | VERIFIED (regression check) | Files untouched, confirmed via the `git log` scoping evidence above |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| Residual CR-01 trigger (3+ lines needed) now signals truncation | Standalone Node re-implementation of current `wrapOverlayLines`, run against the long-accuracy overlay string at maxWidth 20 | `["12.9716, 77.5946 ·", "±123457m · 23 Jul…"]` — last line ends with "…" | ✓ PASS |
-| Original CR-01 trigger (2-line) still fixed, not re-broken | Standalone Node re-implementation, run against the plan 01-08 reproduction input | Timestamp fully retained, no spurious ellipsis | ✓ PASS |
-| Clean 2-line wrap not over-ellipsized | Standalone Node re-implementation, `"aaaa bbbb cccc dddd"` at width 9 | `["aaaa bbbb", "cccc dddd"]` — no ellipsis | ✓ PASS |
-| `tests/unit/overlay.test.ts` (targeted) | `npx vitest run tests/unit/overlay.test.ts` | 11/11 passed | ✓ PASS |
-| Full unit test suite | `npx vitest run` | 35/35 passed (6 files) | ✓ PASS |
-| Typecheck | `npx tsc --noEmit` | exits 0 | ✓ PASS |
-| Scoped lint on touched files | `npx eslint src/lib/overlay.ts tests/unit/overlay.test.ts` | no errors | ✓ PASS |
-| **Full e2e suite, actually executed (not just `--list`)** | `npx playwright test` against a fresh, version-matched server on canonical port 3000, run twice | 13/13 passed both runs (27.1s, 32.7s) | ✓ PASS |
+| G-01-2 forced-upload-failure sanitized error test | `npx playwright test tests/e2e/capture.spec.ts` | 8/8 passed (new test: 5.3s) | PASS |
+| Full capture-flow regression (happy path, denials, escalations, grid, preview/Retake, upload failure) | (same run as above) | 8/8 | PASS |
+| Full e2e suite (capture + feed + permalink + search) | `npx playwright test` | 15/15 passed in 30.8s | PASS |
+| Typecheck | `npx tsc --noEmit` | exits 0 | PASS |
+| Full unit test suite | `npx vitest run` | 35/35 passed (6 files) | PASS |
+| Scoped lint on touched files | `npx eslint src/components/capture/CameraCapture.tsx tests/e2e/capture.spec.ts README.md` | 0 errors (1 expected info notice for the non-JS README) | PASS |
+| Dev server freshness (precondition for e2e runs) | 5x `curl localhost:3000` | 5/5 returned 200 | PASS |
+| Debt-marker scan | `grep -rn "TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER" src/ tests/` | zero matches | PASS |
 
 ### Probe Execution
 
@@ -133,43 +145,52 @@ Not applicable — no `scripts/*/tests/probe-*.sh` conventions exist in this pro
 
 ### Requirements Coverage
 
-| Requirement | Source Plan | Description | Status | Evidence |
+| Requirement | Source Plan(s) | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| SUBM-01 | 01-02, 01-03, 01-05, 01-09 | Live in-app camera capture only, no gallery upload | ✓ SATISFIED | `CameraCapture.tsx` (getUserMedia only); overlay burn-in completeness (D-02, tied to this requirement's anti-fraud framing) now fully fixed by 01-08+01-09; e2e capture flow test passes end-to-end |
-| SUBM-02 | 01-01, 01-03, 01-05 | 5 fixed categories, server-validated | ✓ SATISFIED | Unchanged |
-| SUBM-03 | 01-02, 01-03, 01-05 | Live GPS at submit time, never EXIF | ✓ SATISFIED | The authoritative GPS location is a DB column (`geometry(point,4326)`), stored independently of the canvas overlay |
-| SUBM-06 | 01-01, 01-02 | Unique opaque searchable ID | ✓ SATISFIED | Unchanged |
-| FEED-01 | 01-02, 01-04, 01-06, 01-07 | Proximity/recency feed, viewable by anyone | ✓ SATISFIED | Unchanged; e2e proximity-ranking test executed and passing this pass |
-| FEED-03 | 01-04 | Search by ID | ✓ SATISFIED | Unchanged; e2e search-by-ID tests executed and passing this pass |
-| FEED-04 | 01-04 | Shareable permalink | ✓ SATISFIED | Unchanged; e2e permalink tests executed and passing this pass |
+| SUBM-01 | 01-02, 01-03, 01-05, 01-09, 01-10, 01-11 | Live in-app camera capture only, no gallery upload | SATISFIED* | Core capability works end-to-end (e2e-proven); *caveat: the publish action's failure-path error handling has an unremediated info-disclosure gap (Gap 1) |
+| SUBM-02 | 01-01, 01-03, 01-05 | 5 fixed categories, server-validated | SATISFIED | Unchanged since prior pass |
+| SUBM-03 | 01-02, 01-03, 01-05 | Live GPS at submit time, never EXIF | SATISFIED | Unchanged; authoritative GPS is a DB column, independent of the canvas overlay |
+| SUBM-06 | 01-01, 01-02 | Unique opaque searchable ID | SATISFIED | Unchanged |
+| FEED-01 | 01-02, 01-04, 01-06, 01-07 | Proximity/recency feed, viewable by anyone | SATISFIED | Unchanged; e2e proximity-ranking test passes this pass |
+| FEED-03 | 01-04 | Search by ID | SATISFIED | Unchanged; e2e search-by-ID tests pass this pass |
+| FEED-04 | 01-04 | Shareable permalink | SATISFIED* | Core permalink rendering works (e2e-proven); *caveat: the photo-404 graceful-degradation pattern the feed already has is missing on this exact surface (Gap 2) |
 
-No orphaned requirements — same 7 IDs mapped in REQUIREMENTS.md, all traced to Phase 1 across 01-01…01-09. All 7 formal requirement descriptions are satisfied. `.planning/REQUIREMENTS.md`'s Traceability table still shows all 7 as "Gaps Found" pending the flip to "Complete" — expected while `status: human_needed` (3 open human-verification items), not a regression.
+No orphaned requirements — the same 7 IDs mapped in REQUIREMENTS.md's traceability table are all cited across plans 01-01 through 01-11. All 7 formal requirement descriptions have their core capability satisfied; two carry a caveat pointing at the gaps below.
+
+**Documentation inconsistency (informational, not a new finding):** `.planning/REQUIREMENTS.md` still shows `SUBM-01`/`SUBM-03` checked `[x]` while the other 5 Phase 1 requirements remain `[ ]`, and the Traceability table still lists all 7 as "Gaps Found" — an internal inconsistency in the requirements doc itself, unchanged since the prior verification pass. Recommend reconciling this once this VERIFICATION.md reaches `status: passed`.
 
 ### Anti-Patterns Found
 
-None blocking. Targeted grep of the two files plan 01-09 touched (`src/lib/overlay.ts`, `tests/unit/overlay.test.ts`) for `TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER` found zero matches.
+| File | Line | Pattern | Severity | Impact |
+|------|------|---------|----------|--------|
+| `src/actions/submit-complaint.ts` | 67-76 | Raw error rethrown verbatim on non-unique-violation DB failure | 🛑 Blocker | See Gap 1 — information disclosure, breaks this phase's own established sanitization pattern |
+| `src/app/c/[id]/page.tsx` | 74-83 | `<Image>` has no `onError`/fallback, unlike `FeedCard.tsx` | 🛑 Blocker | See Gap 2 — contradicts the phase's stated must-have for the permalink surface specifically |
 
-Code review (`01-REVIEW.md`, from the prior cycle) previously catalogued 10 Warning-level and 6 Info-level robustness findings (WR-01..WR-10, IN-01..IN-06 — concurrency guards, unguarded track access, permission-check fail-open, DB client singleton guard, `photoExists` error conflation, unvalidated-category icon crash risk, logging inconsistency, missing rate limiting, unreachable code, duplicated helpers, dead webp support, captured-photo-not-previewed-before-publish). Plan 01-09's scope explicitly excluded all of these (per its own scope-discipline note), and this verification confirms none of them regressed or newly block a ROADMAP success criterion or REQUIREMENTS.md ID for this phase — they remain correctly triaged as non-blocking Warnings/Info, noted for visibility only.
+`01-REVIEW.md` (re-run at HEAD `12fdf3f`, after plan 01-11) reports 1 Critical (CR-01, matches Gap 1 above), 12 Warning, 7 Info findings, `status: issues_found`. Both Warning-severity findings independently spot-checked this pass (WR-08, matching Gap 2 above, and the previously-triaged empty-`lat`/`lng` coercion) are real and unaddressed, but the remaining 10 Warnings and 7 Info findings (`photoKey` not single-use, no rate limiting on upload-url/submit — explicitly deferred to Phase 4 per WR-07/01-UAT.md test 8's sign-off, `photoExists` error conflation, missing DB-level category CHECK constraint, `FeedList` missing fetch dedupe, duplicated category-label/icon maps, migration doesn't self-provision PostGIS, etc.) are correctness/robustness edge cases unrelated to this phase's 7 declared requirement IDs or its observable truths, consistent with how prior verification passes triaged this class of finding — noted for visibility, not blocking.
+
+Repo-wide grep of `src/`/`tests/` for `TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER` and `test.fixme()`/`test.skip()` found zero matches — no debt-marker gate violation.
 
 ### Human Verification Required
 
-3 items remain open, all unchanged since the prior pass and none newly introduced by plan 01-09:
+2 items remain open (both are real-infra/real-device checks that cannot be automated; the double-tap item from the prior pass is now closed via `01-UAT.md`'s human-confirmed pass):
 
-1. **iOS Safari real-device orientation/overlay legibility** — skipped in `01-UAT.md` (test 2), still open. Now that both truncation triggers are fixed, the residual real-device question is narrower: confirm the burned-in overlay is legible and, if it ever wraps to the 2-line limit at a narrow real viewport, that the visible "…" (if truncation occurs) renders correctly and isn't clipped by the overlay bar.
-2. **Forced photo-404 placeholder render** — skipped in `01-UAT.md` (test 5), still open.
-3. **Double-tap Publish race** — code guard present and correct by construction, but no concurrency test exercises it; unchanged since the prior verification cycle.
-
-Note: the orchestrator-raised concern about "Publish Report never enables" in e2e was investigated directly by this verification (see "Investigation" section above) and did **not** reproduce against a genuinely fresh, version-matched server — it is not added as a 4th human-verification item because it was independently, repeatably disproven as a live-environment artifact, not left uncertain.
+1. **G-01-2's infra half — R2 CORS change + live production confirmation.** A human with Cloudflare R2 credentials must add `https://knowyourarea.in` to the bucket's CORS `AllowedOrigins` (README.md now documents the exact `wrangler` commands), then confirm on a real phone browser against `https://knowyourarea.in/capture` that capture→upload→publish completes with no error text and Publish Report enables. This is genuinely unautomatable — the coding agent has no R2 credentials, and the effect can't be reproduced on localhost/Playwright (both origins were always CORS-allowed).
+2. **iOS Safari real-device orientation/legibility (01-UAT.md test 2).** This check was never actually completed — the tester's attempt was blocked by the G-01-2 CORS bug before a captured photo could even be seen on production, so `01-UAT.md` records it as `result: issue` (the CORS bug itself), not a genuine finding about orientation/legibility. Must be re-attempted once item 1 above is unblocked.
 
 ### Gaps Summary
 
-**No blocking gaps remain.** The sole gap tracked in the prior verification pass (the residual CR-01 3+-line overlay truncation trigger) is closed and independently re-verified via direct source read, full unit-suite execution, and a from-scratch standalone re-implementation run against both the residual and original reproduction cases.
+**2 new blocking gaps found this pass, both independently confirmed by direct source reading (not inferred from any SUMMARY.md or prior UAT claim), and both flagged separately by this phase's own freshly re-run `01-REVIEW.md`:**
 
-**No regressions:** `git diff --stat` between the prior verification pass and this one confirms only `src/lib/overlay.ts`, `tests/unit/overlay.test.ts`, and planning-doc artifacts changed. Full unit suite grew 33→35 passing (all green), typecheck clean, e2e suite **actually executed** (not just enumerated, for the first time across all verification passes of this phase) at 13/13 passing twice in a row, lint clean on touched files.
+1. **`submitComplaint`'s insert-failure path leaks raw DB/driver error text to the UI** (CR-01 in `01-REVIEW.md`) — the one place in this codebase that never received the sanitization treatment this project has otherwise applied consistently three times over (camera/geolocation errors in Plan 01-05, feed-route errors in Plan 01-06, and — just now, in this very re-verification round — upload errors in Plan 01-11). This is a pre-existing gap (code unchanged since Plan 01-03), not a regression, but it is squarely within this phase's own established "no raw error leaks" bar and directly affects the publish action central to SUBM-01/SUBM-03.
+2. **The permalink page has no photo-404 fallback**, unlike the feed card (WR-08 in `01-REVIEW.md`) — contradicting `01-UAT.md` test 5's recorded `pass` for this must-have when the permalink surface specifically is examined at the source level. Pre-existing (code unchanged since Plan 01-04), not a regression, but the permalink is FEED-04's actual shareable-link artifact and is arguably the more consequential surface for this backstop, per the review's own note.
 
-**Status is `human_needed`, not `passed`,** solely because 3 pre-existing human-verification items remain open (iOS Safari real-device check, forced photo-404 placeholder, double-tap race) — none of which are new, none of which were introduced or affected by plan 01-09, and all three were already flagged in the phase's first UAT cycle. This phase is ready to proceed to human verification (`01-UAT.md` continuation) to close out those 3 items; no further gap-closure planning round is needed for programmatically-checkable concerns.
+**Plan 01-11's own deliverables are fully verified and closed at the code level:** the sanitized upload-error message, its e2e coverage, and the README CORS documentation are all confirmed present, substantive, and passing. The two items 01-11 itself declared as human-only/infra (R2 CORS application, live production confirmation) remain open exactly as the plan anticipated — not failures, correctly routed to Human Verification.
+
+**No regressions:** typecheck clean, full unit suite 35/35, full e2e suite 15/15, lint clean on touched files, zero debt markers, `git log` confirms no previously-verified artifact besides the three files 01-11 declared was touched.
+
+**Status is `gaps_found`, not `human_needed` or `passed`,** because two blocker-severity truths (the raw-error-leak in the publish path, and the missing permalink photo-404 fallback) are independently confirmed as currently FAILED in the codebase — this takes precedence over the two genuinely human-only items per the verification decision tree. Recommend routing these two gaps to `/gsd-plan-phase --gaps` for a focused closure plan (both are small, well-scoped fixes matching an already-established pattern in this same codebase), after which the two remaining human-only items (R2 CORS infra + iOS Safari real-device check) can close out the phase to `passed`.
 
 ---
 
-_Verified: 2026-07-26T01:40:00Z_
+_Verified: 2026-07-27T22:00:00Z_
 _Verifier: Claude (gsd-verifier)_
