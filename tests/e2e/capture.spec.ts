@@ -194,3 +194,45 @@ test("capture flow: location denial via geolocation code 1 escalates to hard-blo
 
   await expect(page.getByTestId("permission-hard-block")).toContainText("Location access is off");
 });
+
+// G-01-2: on production (https://knowyourarea.in), the R2 bucket's CORS
+// AllowedOrigins only listed http://localhost:3000, so the browser -> R2
+// presigned PUT was a real cross-origin request that got CORS-blocked —
+// Safari surfaced this as `TypeError: Load failed`, and the upload catch
+// block used to reflect that raw error text into the UI while leaving
+// Publish permanently disabled. This test can't reproduce a real CORS block
+// (localhost is always allowed), so it stands in for one: stub the
+// same-origin /api/upload-url POST to hand back a presigned URL on an
+// r2.cloudflarestorage.com host, then abort the PUT to that host so the
+// browser fetch rejects with a network error — the same failure class a
+// CORS block produces. Asserts the sanitized message (never the raw
+// thrown/network error text) and that Publish stays disabled.
+test("capture flow: forced upload failure renders sanitized error, Publish stays disabled (G-01-2)", async ({
+  page,
+}) => {
+  await page.route("**/api/upload-url", async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        url: "https://example.r2.cloudflarestorage.com/fake-presigned-put",
+        key: "fake-key.jpg",
+      }),
+    });
+  });
+
+  await page.route("https://example.r2.cloudflarestorage.com/**", async (route) => {
+    await route.abort();
+  });
+
+  await page.goto("/capture");
+
+  await page.getByRole("button", { name: "Pothole/Road damage" }).click();
+  await page.getByRole("button", { name: "Capture Photo" }).click();
+
+  await expect(page.getByTestId("capture-error")).toHaveText(
+    "Couldn't upload the photo. Check your connection and try again.",
+    { timeout: 20_000 },
+  );
+  await expect(page.getByRole("button", { name: "Publish Report" })).toBeDisabled();
+});
