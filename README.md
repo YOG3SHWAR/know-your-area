@@ -39,6 +39,35 @@ Steps:
    On the R2 bucket, add a CORS rule allowing `PUT` (with the `Content-Type` header) from
    `http://localhost:3000` so the browser → R2 direct upload succeeds.
 
+   **Before/after deploying to production, the same bucket CORS rule must also include the
+   production origin** `https://knowyourarea.in` (and any active Vercel preview-deployment
+   origins) — otherwise the browser → R2 presigned PUT is CORS-blocked in production even
+   though it works on localhost (this was the root cause of G-01-2: "Load failed" on capture,
+   Publish Report never enabling). Never add a wildcard `*` origin. Apply via Wrangler:
+   ```bash
+   wrangler r2 bucket cors set <R2_BUCKET_NAME> --file cors.json
+   ```
+   where `cors.json` uses the Wrangler CLI shape (`allowed.origins` / `allowed.methods` /
+   `allowed.headers` — distinct from the Cloudflare dashboard's `AllowedOrigins` /
+   `AllowedMethods` / `AllowedHeaders` shape):
+   ```json
+   {
+     "rules": [
+       {
+         "allowed": {
+           "origins": ["http://localhost:3000", "https://knowyourarea.in"],
+           "methods": ["GET", "PUT"],
+           "headers": ["Content-Type"]
+         }
+       }
+     ]
+   }
+   ```
+   Verify with:
+   ```bash
+   wrangler r2 bucket cors list <R2_BUCKET_NAME>
+   ```
+
 3. **Push the schema:**
    ```bash
    npx drizzle-kit push

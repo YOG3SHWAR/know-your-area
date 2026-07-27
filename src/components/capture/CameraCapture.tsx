@@ -176,8 +176,12 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       streamRef.current = null;
       setStatus("captured");
       onCaptured(key);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Couldn't upload the photo.");
+    } catch {
+      // G-01-2: never reflect the raw thrown/network error text (e.g.
+      // Safari's `TypeError: Load failed` on a CORS-blocked cross-origin
+      // presigned PUT) into the UI — always one fixed, sanitized, actionable
+      // message, mirroring the camera-start and geolocation paths above.
+      setError("Couldn't upload the photo. Check your connection and try again.");
       setStatus("error");
       setPreviewUrl(null);
     }
@@ -225,7 +229,11 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
           />
         )}
       </div>
-      {error && <p className="text-sm text-destructive">{error}</p>}
+      {error && (
+        <p className="text-sm text-destructive" data-testid="capture-error">
+          {error}
+        </p>
+      )}
       {status === "captured" ? (
         <Button
           type="button"
