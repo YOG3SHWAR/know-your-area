@@ -18,7 +18,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **SUBM-01**: User can capture a live photo in-app (camera only — gallery/file-picker upload is blocked)
 - [ ] **SUBM-02**: User selects one of 5 fixed categories when submitting (Pothole/Road damage, Garbage/Sanitation, Streetlight/Electrical, Water/Drainage, Traffic lights)
-- [ ] **SUBM-03**: App auto-captures the user's GPS location at submission time (read live from the browser, not from image EXIF)
+- [x] **SUBM-03**: App auto-captures the user's GPS location at submission time (read live from the browser, not from image EXIF)
 - [ ] **SUBM-04**: Submitted location is reverse-geocoded to the lowest available address level (locality/ward/pincode)
 - [ ] **SUBM-05**: Submitted photos are automatically processed to blur faces and license plates before publishing
 - [ ] **SUBM-06**: Each complaint receives a unique, opaque, searchable ID upon submission

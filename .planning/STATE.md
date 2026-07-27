@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-10-PLAN.md - G-01-9 capture preview + Retake gap closure complete
-last_updated: "2026-07-26T14:31:33.905Z"
-last_activity: 2026-07-26
+stopped_at: Completed 01-11-PLAN.md - G-01-2 upload-error sanitization + README CORS docs closed; R2 CORS user_setup + real-device human-check still open (end-of-phase UAT)
+last_updated: "2026-07-27T15:55:00.827Z"
+last_activity: 2026-07-27
 last_activity_desc: Phase 01 execution started
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 10
-  completed_plans: 10
+  total_plans: 11
+  completed_plans: 11
 ---
 
 # Project State
@@ -28,9 +28,9 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 2 of 10
+Plan: 2 of 11
 Status: Ready to execute
-Last activity: 2026-07-26 — Phase 01 execution started
+Last activity: 2026-07-27 — Phase 01 execution started
 
 Progress: [██████████] 100%
 
@@ -68,6 +68,7 @@ Progress: [██████████] 100%
 | Phase 01 P08 | 8min | 1 tasks | 2 files |
 | Phase 01 P09 | 10min | 1 tasks | 2 files |
 | Phase 01 P10 | 5min | 2 tasks | 3 files |
+| Phase 01 P11 | 2min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -99,6 +100,8 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-09: Skip post-loop append of the dangling wrap fragment on break-truncation instead of push-then-clamp; broaden ellipsis condition to (truncated || measured-width overflow) so a break-triggered truncation always leaves a visible ellipsis on the last retained overlay line (residual CR-01 closed)
 - [Phase ?]: 01-10: Broadened onCaptured to accept null so Retake can clear the parent's pending photoKey without changing capture/page.tsx
 - [Phase ?]: 01-10: Always-mounted <video> with an absolutely-positioned <img> preview overlay preserves the stream binding across generic error/retry paths (no remount)
+- [Phase ?]: 01-11: Removed err-typed branching in CameraCapture.tsx's upload catch block entirely — always render one fixed sanitized message, never raw thrown/network error text
+- [Phase ?]: 01-11: R2 CORS production-origin change (user_setup) and the real-device human-check remain open post-plan — deferred to end-of-phase UAT per workflow.human_verify_mode: end-of-phase
 
 ### Pending Todos
 
@@ -122,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-26T14:31:33.898Z
-Stopped at: Completed 01-10-PLAN.md - G-01-9 capture preview + Retake gap closure complete
+Last session: 2026-07-27T15:55:00.820Z
+Stopped at: Completed 01-11-PLAN.md - G-01-2 upload-error sanitization + README CORS docs closed; R2 CORS user_setup + real-device human-check still open (end-of-phase UAT)
 Resume file: None
