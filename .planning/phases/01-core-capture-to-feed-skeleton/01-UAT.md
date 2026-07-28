@@ -1,14 +1,14 @@
 ---
-status: diagnosed
+status: complete
 phase: 01-core-capture-to-feed-skeleton
 source: [01-VERIFICATION.md]
 started: 2026-07-23T10:34:18Z
-updated: "2026-07-27T00:20:00Z"
+updated: "2026-07-28T13:45:00Z"
 ---
 
 ## Current Test
 
-[testing complete]
+[testing complete — both human-only items (G-01-2 R2 CORS + real-device confirmation, iOS Safari orientation re-check) closed 2026-07-28]
 
 ## Tests
 
@@ -20,9 +20,8 @@ result: pass
 ### 2. Real iOS Safari: photo orientation and overlay legibility
 
 expected: Capture a photo in portrait orientation on real iOS Safari — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio (RESEARCH.md Pitfall 3 explicitly evades emulation).
-result: issue
-reported: "on real device web and phone not working, in localhost it is working, i merged the latest code in main. Screenshot: on production (knowyourarea.in) after capturing a photo, the preview shows 'Load failed' text beneath the captured image and the Publish Report button is disabled/grayed out — capture-to-publish flow is blocked in production on a real device, while the same flow works on localhost."
-severity: blocker
+result: pass
+reason: "Re-tested after G-01-2's R2 CORS fix was applied to production. Photo captures correctly on real iOS Safari — not rotated/skewed, overlay upright and legible. Original 'issue' result was the CORS block (G-01-2), not a genuine orientation/legibility defect — confirmed resolved on re-test 2026-07-28."
 
 ### 3. Real device: permission-denial hard block
 
@@ -69,9 +68,9 @@ result: pass
 ## Summary
 
 total: 9
-passed: 6
+passed: 7
 resolved: 2
-issues: 1
+issues: 0
 pending: 0
 skipped: 0
 blocked: 0
@@ -80,7 +79,8 @@ blocked: 0
 
 - gap_id: G-01-2
   truth: "Capture a photo in portrait orientation on a real device — not rotated/skewed, burned-in overlay text upright, legible, wraps/truncates gracefully at a narrow aspect ratio."
-  status: failed
+  status: resolved
+  resolved_at: "2026-07-28"
   reason: "User reported: on real device web and phone not working, in localhost it is working, i merged the latest code in main. Screenshot: on production (knowyourarea.in) after capturing a photo, the preview shows 'Load failed' text beneath the captured image and the Publish Report button is disabled/grayed out — capture-to-publish flow is blocked in production on a real device, while the same flow works on localhost."
   severity: blocker
   test: 2
@@ -94,6 +94,7 @@ blocked: 0
     - "Add https://knowyourarea.in (and active Vercel preview-deployment origins) to the R2 bucket's CORS AllowedOrigins via wrangler r2 bucket cors set or the Cloudflare dashboard"
     - "Replace CameraCapture.tsx's raw err.message surfacing in the upload catch block with a sanitized, actionable error message, consistent with the existing camera/geolocation error handling in the same file"
   debug_session: ".planning/debug/production-capture-load-failed.md"
+  resolved_by: "Plan 01-11 (sanitized error message + README CORS docs) closed the code half. User applied the R2 bucket CORS AllowedOrigins change in production (human_setup, outside git). Re-verified live 2026-07-28 via /gsd-verify-work: real-device capture on https://knowyourarea.in now uploads successfully with Publish Report enabled, and the previously-blocked iOS Safari orientation/legibility check (test 2) now passes."
 
 - gap_id: G-01-9
   truth: "On the /capture page, after a photo is captured and a category chosen, tap \"Publish Report\" twice in rapid succession (near-simultaneous, faster than a render cycle). Exactly one complaint is created; the second tap is a no-op."
