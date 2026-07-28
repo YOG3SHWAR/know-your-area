@@ -9,6 +9,7 @@ import { CategoryPicker } from "@/components/capture/CategoryPicker";
 import { PermissionGate } from "@/components/capture/PermissionGate";
 import { Button } from "@/components/ui/button";
 import { captureBestFix } from "@/lib/geolocation";
+import { sanitizeError } from "@/lib/sanitize-error";
 import { type Category } from "@/types/complaint";
 
 // D-03/D-04: the whole flow is wrapped in PermissionGate (proactive
@@ -60,10 +61,20 @@ export default function CapturePage() {
       router.push("/");
     } catch (err) {
       // Form state (photo, category) is preserved on failure, not cleared.
+      // G-01-CR-01: never render an arbitrary thrown message — submitComplaint
+      // now throws only sanitized/intentional messages, and this sink no
+      // longer reads the thrown message at all, closing the leak at both the
+      // source and the sink. Trade-off: the near-unreachable photoExists
+      // "Photo not found" edge case now also surfaces this generic message
+      // instead of its own text — accepted because Publish only enables
+      // after a confirmed upload, so that case is effectively unreachable in
+      // the real flow.
       setError(
-        err instanceof Error
-          ? err.message
-          : "Couldn't publish your report. Check your connection and try again.",
+        sanitizeError(
+          err,
+          "Couldn't publish your report. Check your connection and try again.",
+          "publish failed",
+        ),
       );
       setPublishPhase("idle");
     }

@@ -7,10 +7,15 @@ import { db } from "@/lib/db/client";
 import { complaints } from "@/lib/db/schema";
 import { generatePublicId } from "@/lib/ids";
 import { photoExists } from "@/lib/r2";
+import { sanitizeError } from "@/lib/sanitize-error";
 import { submissionSchema, type SubmissionInput } from "@/types/complaint";
 
 const MAX_ID_ATTEMPTS = 5;
 const UNIQUE_VIOLATION_CODE = "23505";
+// G-01-CR-01: the one sanitized message the client ever sees for a publish
+// failure (matches capture/page.tsx's prior fallback string exactly).
+const SANITIZED_PUBLISH_MESSAGE =
+  "Couldn't publish your report. Check your connection and try again.";
 
 function isUniqueViolation(err: unknown): boolean {
   return (
@@ -67,11 +72,16 @@ export async function submitComplaint(input: SubmissionInput): Promise<{ publicI
     } catch (err) {
       lastError = err;
       if (isUniqueViolation(err) && attempt < MAX_ID_ATTEMPTS - 1) continue;
-      throw err;
+      // G-01-CR-01: never rethrow the raw DB/driver error across the Server
+      // Action boundary — log the real detail server-side and throw only
+      // the fixed sanitized message.
+      throw new Error(
+        sanitizeError(err, SANITIZED_PUBLISH_MESSAGE, "submitComplaint insert failed"),
+      );
     }
   }
 
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("failed to generate a unique complaint id");
+  throw new Error(
+    sanitizeError(lastError, SANITIZED_PUBLISH_MESSAGE, "submitComplaint exhausted id attempts"),
+  );
 }
