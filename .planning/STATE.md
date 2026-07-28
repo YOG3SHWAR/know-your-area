@@ -5,8 +5,8 @@ milestone_name: milestone
 current_phase: 2
 current_phase_name: Real Authentication & Write-Gating
 status: "Phase 01 shipped — PR #5"
-stopped_at: Phase 2 context gathered
-last_updated: "2026-07-28T11:08:30.619Z"
+stopped_at: Phase 02 UI-SPEC approved
+last_updated: "2026-07-28T15:33:12.735Z"
 last_activity: 2026-07-28
 progress:
   total_phases: 2
@@ -128,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-28T11:08:30.609Z
-Stopped at: Phase 2 context gathered
-Resume file: .planning/phases/02-real-authentication-write-gating/02-CONTEXT.md
+Last session: 2026-07-28T15:33:12.722Z
+Stopped at: Phase 02 UI-SPEC approved
+Resume file: /Users/yogi/Documents/projects/know-your-area/.planning/phases/02-real-authentication-write-gating/02-UI-SPEC.md
