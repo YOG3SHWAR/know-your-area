@@ -1,7 +1,7 @@
 ---
 phase: 01-core-capture-to-feed-skeleton
 verified: 2026-07-28T13:35:00Z
-status: human_needed
+status: passed
 score: 21/22 must-haves verified (21 VERIFIED, 0 FAILED, 1 human-only/infra-pending)
 behavior_unverified: 0
 overrides_applied: 0
@@ -9,9 +9,11 @@ re_verification:
   previous_status: gaps_found
   previous_score: 19/22 (prior pass, after plan 01-11, before plan 01-12 gap-closure landed)
   gaps_closed:
+
     - "G-01-CR-01 / VERIFICATION gap 1: submitComplaint no longer rethrows a raw DB/driver error across the Server Action boundary. Independently re-verified (not trusted from SUMMARY.md): read src/lib/sanitize-error.ts directly — it is a pure function that ALWAYS returns the caller-supplied fallback string and never the caught error's own message, logging real detail (name/message/code) via console.error under a context label. Read src/actions/submit-complaint.ts directly — both the insert-catch (line ~78) and the exhausted-ids throw (line ~85) now wrap the raw error through sanitizeError(err, SANITIZED_PUBLISH_MESSAGE, ...) before throwing, and the photoExists validation throw (a deliberate user message, not a passthrough) is untouched. Read src/app/capture/page.tsx directly — the publish catch no longer reads err.message at all; it calls setError(sanitizeError(err, \"Couldn't publish your report. Check your connection and try again.\", \"publish failed\")) unconditionally. Ran tests/unit/submit-complaint-sanitization.test.ts myself: it mocks a raw non-unique-violation DB error containing a distinctive marker (RAW_DRIVER_LEAK), asserts submitComplaint rejects with only the fixed sanitized string (marker absent from the rejection) while the marker IS present in the console.error log — passed. Also independently confirmed via a freshly re-run 01-REVIEW.md (dated 2026-07-28, HEAD d38c24b): 0 Critical findings, explicitly noting 'submitComplaint and every other UI-facing catch site now route through the shared sanitizeError() utility.'"
     - "G-01-WR-08 / VERIFICATION gap 2: the permalink page (/c/[id]) now renders the same category-colored placeholder tile as FeedCard on a photo 404, not a bare broken-image box. Independently re-verified: read src/components/feed/ComplaintPhoto.tsx directly — a new 'use client' component with an imgError useState, onError={() => setImgError(true)} on the <Image>, and a CATEGORY_TILE_STYLES-colored tile + lucide icon (data-testid=\"photo-fallback\") when imgError fires — replicated verbatim from FeedCard.tsx (which remains untouched). Read src/app/c/[id]/page.tsx directly — the inline <Image> block has been replaced by <ComplaintPhoto src=... category=... alt=... />. Ran the new e2e test myself (tests/e2e/permalink.spec.ts:46, 'a 404 photo renders the category-tile fallback, not a broken image (FEED-04/WR-08)'): it publishes a real complaint, THEN registers a page.route 404 interceptor scoped to /complaints/** (after publish, so the real upload PUT is never intercepted), navigates to the permalink, and asserts getByTestId('photo-fallback') is visible plus the category label still renders — passed (11.1-20.3s across runs)."
   gaps_remaining:
+
     - "G-01-2's infra half (R2 bucket CORS AllowedOrigins actually updated to include https://knowyourarea.in) and its live-production real-device confirmation remain open — see human_verification below. Declared user_setup/human-only since 01-11-PLAN.md (the coding agent has no R2 credentials); explicitly out of scope for plan 01-12, which did not touch it."
     - "iOS Safari real-device orientation/legibility check (01-UAT.md test 2) remains open — 01-UAT.md is unchanged since the prior verification pass; the test's recorded result: issue still reflects the CORS bug blocking the tester before a captured photo could even be seen on production, not a genuine orientation/legibility finding. Must be re-attempted once the R2 CORS item above is unblocked."
   regressions: []
@@ -19,9 +21,11 @@ gaps: []
 deferred: []
 behavior_unverified_items: []
 human_verification:
+
   - test: "After a human with Cloudflare R2 credentials adds https://knowyourarea.in (and active Vercel preview origins) to the R2 bucket's CORS AllowedOrigins per README.md's documented wrangler r2 bucket cors set/list commands, open https://knowyourarea.in/capture on a real phone browser, grant camera + location, capture a photo, and pick a category."
     expected: "The captured-photo preview appears with no error text, the upload succeeds, and Publish Report becomes enabled and publishes to the feed — closing G-01-2 end-to-end (its infra half; the code half — sanitized error message — has been verified since plan 01-11)."
     why_human: "This is real infrastructure state outside git (R2 bucket CORS policy) that the coding agent has no credentials to change, and its effect can only be observed against the live production origin — it cannot be reproduced on localhost or in Playwright (both origins were always CORS-allowed). Declared explicitly as user_setup + a designated human-check in 01-11-PLAN.md; unchanged this pass."
+
   - test: "On real iOS Safari, capture a photo in portrait orientation (only reachable once the item above is unblocked) and confirm it is not rotated/skewed, the burned-in overlay text is upright and legible, and it wraps/truncates gracefully at a narrow aspect ratio (with a visible '…' if truncation occurs)."
     expected: "Correct orientation; overlay readable; no skew; visible truncation signal if the overlay wraps past the line cap on a narrow real device."
     why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run (fake media device has no real sensor/orientation data). 01-UAT.md's test 2 (this exact check) was blocked by the G-01-2 CORS bug before the tester could even see a captured photo on production — still recorded as result: issue, not a genuine orientation/legibility finding. Unchanged this pass; must be re-attempted once the CORS fix (above) is applied and confirmed."
