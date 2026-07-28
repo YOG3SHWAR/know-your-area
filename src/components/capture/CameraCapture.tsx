@@ -6,6 +6,7 @@ import { usePermissionDenial } from "@/components/capture/PermissionGate";
 import { Button } from "@/components/ui/button";
 import { captureBestFix } from "@/lib/geolocation";
 import { drawOverlay, formatOverlayText } from "@/lib/overlay";
+import { sanitizeError } from "@/lib/sanitize-error";
 
 type CameraCaptureProps = {
   onCaptured: (photoKey: string | null) => void;
@@ -66,7 +67,7 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
           reportDenied("camera");
           return;
         }
-        setError("Couldn't start the camera.");
+        setError(sanitizeError(err, "Couldn't start the camera.", "camera start failed"));
         setStatus("error");
       });
 
@@ -124,7 +125,13 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
         reportDenied("location");
         return;
       }
-      setError("Couldn't get your location for this photo. Try again.");
+      setError(
+        sanitizeError(
+          err,
+          "Couldn't get your location for this photo. Try again.",
+          "capture geolocation failed",
+        ),
+      );
       setStatus("error");
       setPreviewUrl(null);
       return;
@@ -176,12 +183,18 @@ export function CameraCapture({ onCaptured }: CameraCaptureProps) {
       streamRef.current = null;
       setStatus("captured");
       onCaptured(key);
-    } catch {
+    } catch (err) {
       // G-01-2: never reflect the raw thrown/network error text (e.g.
       // Safari's `TypeError: Load failed` on a CORS-blocked cross-origin
       // presigned PUT) into the UI — always one fixed, sanitized, actionable
       // message, mirroring the camera-start and geolocation paths above.
-      setError("Couldn't upload the photo. Check your connection and try again.");
+      setError(
+        sanitizeError(
+          err,
+          "Couldn't upload the photo. Check your connection and try again.",
+          "photo upload failed",
+        ),
+      );
       setStatus("error");
       setPreviewUrl(null);
     }

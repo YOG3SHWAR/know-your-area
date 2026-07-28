@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { nearbyFeed, recentFeed } from "@/lib/feed";
+import { sanitizeError } from "@/lib/sanitize-error";
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
@@ -36,13 +37,9 @@ export async function GET(request: Request) {
     // T-01-09: log full error detail server-side only (greppable in Vercel
     // function logs to disambiguate G-01-EXTRA-1's ranked hypotheses); the
     // client-facing response stays a fixed generic message with no DB
-    // internals.
-    if (err instanceof Error) {
-      const code = (err as Error & { code?: unknown }).code;
-      console.error("feed query failed", err.name, err.message, code);
-    } else {
-      console.error("feed query failed", String(err));
-    }
-    return NextResponse.json({ error: "Couldn't load reports." }, { status: 500 });
+    // internals. Routed through the shared sanitizeError (01-12) — it
+    // reproduces this exact name/message/code log shape.
+    const message = sanitizeError(err, "Couldn't load reports.", "feed query failed");
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
