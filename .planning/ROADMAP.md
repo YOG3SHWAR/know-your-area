@@ -94,7 +94,20 @@ Notes:
   2. A logged-in user stays logged in across a browser refresh/return.
   3. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account (login gate fires on entry to `/capture`, before camera/GPS permission is requested).
 
-**Plans**: TBD
+**Plans**: 3 plans
+
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Better Auth foundation: legitimacy gate, install, Google-only config, push user/session/account/verification schema, adapter round-trip (A1) (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02-PLAN.md — Tracer write-gate slice: `/capture` Server Component gate → `/login` (Google sign-in) + CaptureClient move + session-seeding e2e harness (AUTH-01, AUTH-03) (Wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-03-PLAN.md — Identity swap + defense-in-depth: submitComplaint/`upload-url` session gates, delete device-id, anonymous-browse assertions (AUTH-01, AUTH-04) (Wave 3)
+
 **UI hint**: yes
 
 Notes:
@@ -198,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Capture-to-Feed Skeleton | 12/12 | Complete    | 2026-07-28 |
-| 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
+| 2. Real Authentication & Write-Gating | 0/3 | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |
 | 5. Social Engagement, Ranking & Moderation | 0/TBD | Not started | - |
