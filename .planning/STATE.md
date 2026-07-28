@@ -4,16 +4,16 @@ milestone: v1.0
 milestone_name: milestone
 current_phase: 2
 current_phase_name: Real Authentication & Write-Gating
-status: planning
+status: "Phase 01 shipped — PR #5"
 stopped_at: Completed 01-12-PLAN.md - shared sanitizeError utility (G-01-CR-01) + permalink photo-404 fallback (G-01-WR-08) closed; all 12 plans in phase 01 now complete, phase ready for re-verification
-last_updated: "2026-07-28T08:28:38.690Z"
+last_updated: "2026-07-28T08:32:14.704Z"
 last_activity: 2026-07-28
-last_activity_desc: Phase 01 complete, transitioned to Phase 2
 progress:
   total_phases: 1
   completed_phases: 1
   total_plans: 12
   completed_plans: 12
+last_activity_desc: Phase 01 complete, transitioned to Phase 2
 ---
 
 # Project State
@@ -29,8 +29,8 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 Phase: 2 — Real Authentication & Write-Gating
 Plan: Not started
-Status: Ready to plan
-Last activity: 2026-07-28 — Phase 01 complete, transitioned to Phase 2
+Status: Phase 01 shipped — PR #5
+Last activity: 2026-07-28
 
 Progress: [██████████] 100%
 
