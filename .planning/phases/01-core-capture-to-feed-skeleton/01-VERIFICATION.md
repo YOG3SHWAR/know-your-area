@@ -1,78 +1,63 @@
 ---
 phase: 01-core-capture-to-feed-skeleton
-verified: 2026-07-27T22:00:00Z
-status: gaps_found
-score: 19/22 must-haves verified (19 VERIFIED, 2 FAILED, 1 human-only/infra-pending)
+verified: 2026-07-28T13:35:00Z
+status: human_needed
+score: 21/22 must-haves verified (21 VERIFIED, 0 FAILED, 1 human-only/infra-pending)
 behavior_unverified: 0
 overrides_applied: 0
 re_verification:
-  previous_status: human_needed
-  previous_score: 17/18 (prior pass, before plan 01-11 landed)
+  previous_status: gaps_found
+  previous_score: 19/22 (prior pass, after plan 01-11, before plan 01-12 gap-closure landed)
   gaps_closed:
-    - "G-01-2 (code half only — see gaps_remaining for the infra half): the upload catch block in src/components/capture/CameraCapture.tsx no longer reflects the raw thrown/network error (e.g. Safari's 'Load failed' TypeError from a CORS-blocked cross-origin PUT) into the UI. Independently re-verified (not trusted from SUMMARY.md): read the current catch block directly — it unconditionally sets a fixed sanitized string 'Couldn't upload the photo. Check your connection and try again.' with data-testid=\"capture-error\", removing the prior `err instanceof Error ? err.message : ...` branch entirely. Ran the new e2e test tests/e2e/capture.spec.ts:210 myself against a freshly-confirmed dev server — passed (5.3s), using a page.route stub-then-abort chain against a fabricated r2.cloudflarestorage.com host (hermetic, no live R2 credentials). Ran the full capture.spec.ts (8/8) and the full e2e suite (15/15 across capture/feed/permalink/search) — no regressions. README.md's CORS section (grep-confirmed) now documents https://knowyourarea.in and the wrangler cors set/list commands alongside localhost."
-    - "The double-tap-Publish race (previously ⚠️ PRESENT_BEHAVIOR_UNVERIFIED, human_verification item) is now closed: 01-UAT.md's test 9 ('Rapid double-tap Publish cannot create two complaints') records result: pass, run by a human after G-01-9's fix made the step reachable. No code change was needed; this closes the human-verification gap from the prior pass."
+    - "G-01-CR-01 / VERIFICATION gap 1: submitComplaint no longer rethrows a raw DB/driver error across the Server Action boundary. Independently re-verified (not trusted from SUMMARY.md): read src/lib/sanitize-error.ts directly — it is a pure function that ALWAYS returns the caller-supplied fallback string and never the caught error's own message, logging real detail (name/message/code) via console.error under a context label. Read src/actions/submit-complaint.ts directly — both the insert-catch (line ~78) and the exhausted-ids throw (line ~85) now wrap the raw error through sanitizeError(err, SANITIZED_PUBLISH_MESSAGE, ...) before throwing, and the photoExists validation throw (a deliberate user message, not a passthrough) is untouched. Read src/app/capture/page.tsx directly — the publish catch no longer reads err.message at all; it calls setError(sanitizeError(err, \"Couldn't publish your report. Check your connection and try again.\", \"publish failed\")) unconditionally. Ran tests/unit/submit-complaint-sanitization.test.ts myself: it mocks a raw non-unique-violation DB error containing a distinctive marker (RAW_DRIVER_LEAK), asserts submitComplaint rejects with only the fixed sanitized string (marker absent from the rejection) while the marker IS present in the console.error log — passed. Also independently confirmed via a freshly re-run 01-REVIEW.md (dated 2026-07-28, HEAD d38c24b): 0 Critical findings, explicitly noting 'submitComplaint and every other UI-facing catch site now route through the shared sanitizeError() utility.'"
+    - "G-01-WR-08 / VERIFICATION gap 2: the permalink page (/c/[id]) now renders the same category-colored placeholder tile as FeedCard on a photo 404, not a bare broken-image box. Independently re-verified: read src/components/feed/ComplaintPhoto.tsx directly — a new 'use client' component with an imgError useState, onError={() => setImgError(true)} on the <Image>, and a CATEGORY_TILE_STYLES-colored tile + lucide icon (data-testid=\"photo-fallback\") when imgError fires — replicated verbatim from FeedCard.tsx (which remains untouched). Read src/app/c/[id]/page.tsx directly — the inline <Image> block has been replaced by <ComplaintPhoto src=... category=... alt=... />. Ran the new e2e test myself (tests/e2e/permalink.spec.ts:46, 'a 404 photo renders the category-tile fallback, not a broken image (FEED-04/WR-08)'): it publishes a real complaint, THEN registers a page.route 404 interceptor scoped to /complaints/** (after publish, so the real upload PUT is never intercepted), navigates to the permalink, and asserts getByTestId('photo-fallback') is visible plus the category label still renders — passed (11.1-20.3s across runs)."
   gaps_remaining:
-    - "G-01-2's infra half (R2 bucket CORS AllowedOrigins actually updated to include https://knowyourarea.in) and its live-production real-device confirmation are both still open — see human_verification below. This was always declared as `user_setup`/human-only in 01-11-PLAN.md (the coding agent has no R2 credentials) and is not a code gap."
+    - "G-01-2's infra half (R2 bucket CORS AllowedOrigins actually updated to include https://knowyourarea.in) and its live-production real-device confirmation remain open — see human_verification below. Declared user_setup/human-only since 01-11-PLAN.md (the coding agent has no R2 credentials); explicitly out of scope for plan 01-12, which did not touch it."
+    - "iOS Safari real-device orientation/legibility check (01-UAT.md test 2) remains open — 01-UAT.md is unchanged since the prior verification pass; the test's recorded result: issue still reflects the CORS bug blocking the tester before a captured photo could even be seen on production, not a genuine orientation/legibility finding. Must be re-attempted once the R2 CORS item above is unblocked."
   regressions: []
-gaps:
-  - truth: "submitComplaint (src/actions/submit-complaint.ts) never leaks a raw DB/driver error message to the client on any insert failure other than a unique-violation retry."
-    status: failed
-    reason: "This project has three prior, explicit precedents treating 'raw error text reaching the UI' as an Information-Disclosure threat requiring mitigation: T-01-07 (CameraCapture camera/geolocation errors, Plan 01-05), T-01-09 (feed route errors, Plan 01-06), and T-01-11-02 (upload-catch errors, this very re-verification's Plan 01-11). submit-complaint.ts's insert retry loop was never given the same treatment: any DB failure other than a unique-violation (connection reset, timeout, pool exhaustion, an unexpected constraint violation) is rethrown as-is via `throw err` (line 70) and `throw lastError` (line 74-76). Because this is a Next.js Server Action, the thrown Error's raw `.message` propagates to the caller, and src/app/capture/page.tsx:61-64 renders it directly: `err instanceof Error ? err.message : \"Couldn't publish your report...\"`. This was independently confirmed by reading both files directly at HEAD (not inferred from any SUMMARY.md), and is also flagged as CR-01 (Critical, information disclosure) in this phase's own 01-REVIEW.md (re-run at HEAD 12fdf3f, 2026-07-27) — a finding with no corresponding entry in 01-REVIEW-FIX.md (only one fix pass has ever run, on 2026-07-23, addressing an unrelated, earlier CR-01 about photo-existence checking). git log confirms neither file has been touched since Plan 01-03 (submit-complaint.ts, commit 5581dd3) / Plan 01-02 (capture/page.tsx), so this is not a regression introduced by Plan 01-10 or 01-11 — it is a pre-existing gap in the established sanitization pattern that a fresh review pass surfaced and that 01-11's own G-01-2 fix (for the sibling upload-error path) did not happen to touch."
-    artifacts:
-      - path: "src/actions/submit-complaint.ts"
-        issue: "Lines 67-76: the insert retry loop's catch block only special-cases isUniqueViolation(err); every other error is rethrown verbatim (`throw err` / `throw lastError`), letting raw Postgres/driver error text escape the Server Action boundary."
-      - path: "src/app/capture/page.tsx"
-        issue: "Lines 61-64: `setError(err instanceof Error ? err.message : \"Couldn't publish your report...\")` renders whatever submitComplaint threw directly into the UI's destructive-error paragraph, with no sanitization layer."
-    missing:
-      - "In submit-complaint.ts's catch block, log the real error server-side (`console.error(\"submitComplaint insert failed\", err)`) and throw a single fixed, sanitized Error (e.g. \"Couldn't publish your report. Check your connection and try again.\") for any non-unique-violation failure, mirroring the pattern already used for camera/geolocation (T-01-07) and upload (T-01-11-02) errors in CameraCapture.tsx and for the feed route (T-01-09)."
-      - "A test (unit or e2e) that forces a non-unique-violation DB failure and asserts the UI shows only the fixed sanitized string, never a raw driver/DB error."
-
-  - truth: "A missing/404 photo on the permalink page (/c/[id]) renders the same category-colored placeholder tile with an icon that FeedCard already provides — not a bare broken-image box (FEED-04, matches the phase's own stated must-have for 'feed/permalink')."
-    status: failed
-    reason: "The prior VERIFICATION.md's human_verification item #2 explicitly described this must-have as covering both 'the feed/permalink', and 01-UAT.md's test 5 ('Forced photo 404 renders a placeholder, not a broken image') is recorded as result: pass. Independently reading the actual permalink page source at HEAD contradicts that pass for the permalink surface specifically: src/app/c/[id]/page.tsx's <Image> (lines ~74-83) has no onError handler, no imgError state, and no fallback UI of any kind — a missing/expired photo_key renders Next.js's default broken-image box. FeedCard.tsx (src/components/feed/FeedCard.tsx:41-70), by contrast, implements exactly this pattern: an imgError state, onError={() => setImgError(true)}, and a CATEGORY_TILE_STYLES-colored tile with an icon when it fires — explicitly commented as a 'UI-SPEC backstop item' for a broken/404 image URL. This asymmetry is also independently flagged as WR-08 in the current 01-REVIEW.md (re-run at HEAD 12fdf3f), which notes the permalink page is 'arguably the more important, publicly-shared surface' since it is FEED-04's actual shareable-link artifact. git log confirms src/app/c/[id]/page.tsx has been unchanged since its original Plan 01-04 commit (e6cf993) — this is a real, pre-existing gap that 01-UAT.md's test 5 likely validated against the feed card only, not the permalink page specifically."
-    artifacts:
-      - path: "src/app/c/[id]/page.tsx"
-        issue: "The <Image> at lines ~74-83 has no onError handling or category-tile fallback, unlike FeedCard.tsx's imgError pattern — a missing/404 photo_key on a shared permalink renders a bare broken-image box."
-    missing:
-      - "Add the same imgError-state + CATEGORY_TILE_STYLES fallback pattern to the permalink page's photo block, or extract a shared PhotoTile component consumed by both FeedCard and the permalink page (the fix WR-08 itself suggests)."
-      - "A test (e2e or component) that forces a 404 photo on the permalink route specifically and asserts the category-tile fallback renders, not a broken-image icon — distinct from the existing feed-card-only coverage."
+gaps: []
 deferred: []
 behavior_unverified_items: []
 human_verification:
-  - test: "After a human with Cloudflare R2 credentials adds https://knowyourarea.in (and active Vercel preview origins) to the R2 bucket's CORS AllowedOrigins per README.md's updated instructions (wrangler r2 bucket cors set, verified via wrangler r2 bucket cors list), open https://knowyourarea.in/capture on a real phone browser, grant camera + location, capture a photo, and pick a category."
-    expected: "The captured-photo preview appears with no error text, the upload succeeds, and Publish Report becomes enabled and publishes to the feed — closing G-01-2 end-to-end (its infra half; the code half — sanitized error message — is already verified above)."
-    why_human: "This is real infrastructure state outside git (R2 bucket CORS policy) that the coding agent has no credentials to change, and its effect can only be observed against the live production origin — it cannot be reproduced on localhost or in Playwright (both origins were always CORS-allowed). Declared explicitly as `user_setup` + a designated human-check in 01-11-PLAN.md."
+  - test: "After a human with Cloudflare R2 credentials adds https://knowyourarea.in (and active Vercel preview origins) to the R2 bucket's CORS AllowedOrigins per README.md's documented wrangler r2 bucket cors set/list commands, open https://knowyourarea.in/capture on a real phone browser, grant camera + location, capture a photo, and pick a category."
+    expected: "The captured-photo preview appears with no error text, the upload succeeds, and Publish Report becomes enabled and publishes to the feed — closing G-01-2 end-to-end (its infra half; the code half — sanitized error message — has been verified since plan 01-11)."
+    why_human: "This is real infrastructure state outside git (R2 bucket CORS policy) that the coding agent has no credentials to change, and its effect can only be observed against the live production origin — it cannot be reproduced on localhost or in Playwright (both origins were always CORS-allowed). Declared explicitly as user_setup + a designated human-check in 01-11-PLAN.md; unchanged this pass."
   - test: "On real iOS Safari, capture a photo in portrait orientation (only reachable once the item above is unblocked) and confirm it is not rotated/skewed, the burned-in overlay text is upright and legible, and it wraps/truncates gracefully at a narrow aspect ratio (with a visible '…' if truncation occurs)."
     expected: "Correct orientation; overlay readable; no skew; visible truncation signal if the overlay wraps past the line cap on a narrow real device."
-    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run (fake media device has no real sensor/orientation data). 01-UAT.md's test 2 (this exact check) was blocked by the G-01-2 CORS bug before the tester could even see a captured photo on production — recorded as result: issue, not a genuine orientation/legibility finding. This check has never actually been completed and must be re-attempted once the CORS fix (above) is applied and confirmed."
+    why_human: "Canvas orientation/legibility bugs on real iOS Safari are not reproducible in a headless Chromium E2E run (fake media device has no real sensor/orientation data). 01-UAT.md's test 2 (this exact check) was blocked by the G-01-2 CORS bug before the tester could even see a captured photo on production — still recorded as result: issue, not a genuine orientation/legibility finding. Unchanged this pass; must be re-attempted once the CORS fix (above) is applied and confirmed."
 ---
 
 # Phase 1: Core Capture-to-Feed Skeleton Verification Report
 
 **Phase Goal:** Prove the riskiest end-to-end loop — a user can capture a live, geo-tagged photo, pick a category, publish it, and anyone can see it in a nearby feed and open it directly by its unique ID or permalink. Auth is a stub dev-identity; no geocoding, dedup, blurring, or AI yet.
 
-**Verified:** 2026-07-27T22:00:00Z
-**Status:** gaps_found
-**Re-verification:** Yes — the prior `01-VERIFICATION.md` (`human_needed`, 17/18, written after plan 01-10) predates plan 01-11 (gap closure for G-01-2: production R2 CORS + upload-error sanitization). This pass fully re-verifies the whole phase against the current codebase (not just plan 01-11's delta), per the standard goal-backward methodology, and independently discovered two new gaps not previously surfaced by any SUMMARY.md or UAT round.
+**Verified:** 2026-07-28T13:35:00Z
+**Status:** human_needed
+**Re-verification:** Yes — after gap-closure plan 01-12, which closed the two blocking gaps (G-01-CR-01, G-01-WR-08) from the prior `01-VERIFICATION.md` (`gaps_found`, 19/22, dated 2026-07-27T22:00:00Z).
 
 ## MVP Mode Note
 
-ROADMAP.md marks this phase `Mode: mvp`, but the phase goal text is a capability narrative, not the literal `As a [role], I want [capability], so that [outcome].` format (`gsd_run query user-story.validate` would return `valid: false`). All prior verification passes for this phase applied standard goal-backward verification, not the MVP User-Flow-Coverage format. Continuing that established precedent here for consistency across the phase's verification history.
+ROADMAP.md marks this phase `Mode: mvp`, but the phase goal text is a capability narrative, not the literal `As a [role], I want [capability], so that [outcome].` format. Continuing the established precedent from all prior verification passes on this phase: standard goal-backward verification, not the MVP User-Flow-Coverage format.
 
 ## Re-Verification Summary (this pass, independent of SUMMARY.md claims)
 
-1. **Read `src/components/capture/CameraCapture.tsx`'s upload catch block directly at HEAD.** Confirmed the `err instanceof Error ? err.message : ...` branch that previously leaked raw browser/network error text has been removed entirely; the catch block now unconditionally sets `error` to the fixed string `"Couldn't upload the photo. Check your connection and try again."` and adds `data-testid="capture-error"` to the destructive error `<p>`.
-2. **Read `tests/e2e/capture.spec.ts`'s new G-01-2 test directly (lines 198-236).** Confirmed it is a genuine forced-failure test: it stubs `POST /api/upload-url` to return a fabricated `r2.cloudflarestorage.com` presigned URL, then `route.abort()`s the PUT to that host (the same network-error class a real CORS block produces), then asserts `getByTestId("capture-error")` has the exact sanitized text and `Publish Report` stays disabled.
-3. **Read `README.md`'s CORS section.** Confirmed it now documents `https://knowyourarea.in` (plus active Vercel preview origins) alongside `http://localhost:3000`, the exact `wrangler r2 bucket cors set`/`cors list` commands, the CLI-vs-dashboard JSON shape distinction, and an explicit no-wildcard caution.
-4. **Started a genuinely fresh dev server** (confirmed serving 200 on 5 consecutive `curl` checks) and **ran `npx playwright test tests/e2e/capture.spec.ts` myself** — 8/8 passed (18.0s), including the new G-01-2 test (5.3s) and the pre-existing G-01-9 preview/Retake test, both denial tests, both G-01-3 escalation tests, and the G-01-4 grid-layout test.
-5. **Ran the full `npx playwright test`** (all 15 specs across capture/feed/permalink/search) — 15/15 passed in 30.8s, confirming no regression to FEED-01 (proximity, 28.1s), FEED-03 (search-by-ID), or FEED-04 (permalink).
-6. **Ran `npx tsc --noEmit`** — exits 0, no output.
-7. **Ran `npx vitest run`** — 6 files, 35/35 passed.
-8. **Ran `npx eslint`** on the touched files (`CameraCapture.tsx`, `capture.spec.ts`, `README.md`) — zero errors (README shows an expected "no matching configuration" info notice, not an error — it's a Markdown file, not JS/TS).
-9. **Grepped for debt markers** (`TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER`) across `src/`/`tests/` — zero matches. Checked for `test.fixme()`/`test.skip()` — zero matches.
-10. **Read `01-UAT.md` in full.** Confirmed test 9 ("Rapid double-tap Publish cannot create two complaints") now records `result: pass` — this closes the prior pass's sole `⚠️ PRESENT_BEHAVIOR_UNVERIFIED` truth via genuine human confirmation, run after G-01-9's fix made the step reachable. No code change needed for this closure.
-11. **Read `01-REVIEW.md` at HEAD (commit `12fdf3f`, dated 2026-07-27) — a fresh code-review pass run after plan 01-11 landed.** Unlike the prior verification pass's cited review (`2ce171e`: 0 Critical/6 Warning/3 Info), the current review reports **1 Critical/12 Warning/7 Info**. Cross-checked the new Critical finding (CR-01: raw DB/internal error leak from `submitComplaint`) and one Warning finding (WR-08: permalink page has no broken-image fallback) directly against the live source — both independently confirmed as real, currently-unfixed issues (see Gaps below), not review noise. `git log` confirms neither implicated file (`src/actions/submit-complaint.ts`, `src/app/c/[id]/page.tsx`) has been touched since their original Plan 01-03/01-04 commits, so these are pre-existing gaps a more thorough review pass surfaced — not regressions introduced by Plan 01-10 or 01-11.
-12. **Confirmed via `git log --oneline e630d88..HEAD -- src/ tests/ README.md`** that only `CameraCapture.tsx`, `capture.spec.ts` (G-01-9 in Plan 01-10 + G-01-2 in Plan 01-11), and `README.md` (Plan 01-11) changed in source/test/docs code since the two-passes-ago baseline — no other previously-verified artifact could have regressed.
+1. **Read `src/lib/sanitize-error.ts` directly at HEAD.** Confirmed it is a pure function `sanitizeError(error, fallback, context): string` that always returns `fallback` and logs `console.error(context, name, message, code)` for an `Error` or `console.error(context, String(error))` otherwise — never returning or interpolating the caught error's own message.
+2. **Read `src/actions/submit-complaint.ts` directly.** Confirmed the insert-catch (`throw new Error(sanitizeError(err, SANITIZED_PUBLISH_MESSAGE, "submitComplaint insert failed"))`) and the exhausted-ids throw (`sanitizeError(lastError, SANITIZED_PUBLISH_MESSAGE, "submitComplaint exhausted id attempts")`) both route through the shared utility; the unrelated `photoExists` validation throw (a deliberate message) is untouched; `isUniqueViolation` retry semantics are unchanged.
+3. **Read `src/app/capture/page.tsx` directly.** Confirmed the publish catch no longer reads `err.message` — it calls `setError(sanitizeError(err, "Couldn't publish your report. Check your connection and try again.", "publish failed"))` unconditionally.
+4. **Read `src/components/feed/ComplaintPhoto.tsx` and `src/app/c/[id]/page.tsx` directly.** Confirmed a new `"use client"` component replicates `FeedCard.tsx`'s `imgError` → category-tile pattern verbatim (same `CATEGORY_ICONS`/`CATEGORY_TILE_STYLES` maps, `data-testid="photo-fallback"`), and the permalink page's inline `<Image>` block has been replaced by `<ComplaintPhoto>`. `FeedCard.tsx` itself is untouched.
+5. **Read `src/components/capture/CameraCapture.tsx` and `src/app/api/feed/route.ts` directly.** Confirmed all three CameraCapture catch sites (camera-start, geolocation, upload) and the feed route's catch now call `sanitizeError`, and every previously-established user-facing string (`"Couldn't start the camera."`, `"Couldn't get your location for this photo. Try again."`, `"Couldn't upload the photo. Check your connection and try again."`, `"Couldn't load reports."`) is byte-identical to before.
+6. **Ran `npx tsc --noEmit` myself** — exits 0, no output.
+7. **Ran `npx vitest run` myself** — 8 files, 41/41 passed (up from 35/35 in the prior pass, +6 new tests: `sanitize-error.test.ts` 5 cases, `submit-complaint-sanitization.test.ts` 1 case).
+8. **Started a genuinely fresh dev server** (confirmed serving 200) and **ran `npx playwright test tests/e2e/permalink.spec.ts` myself** — 3/3 passed (21.3s), including the new forced-404-photo fallback test.
+9. **Ran `npx playwright test tests/e2e/capture.spec.ts` myself** — 8/8 passed (12.2s), including the pre-existing G-01-2 forced-upload-failure sanitized-message test (unaffected by the Task 2 retrofit).
+10. **Ran the full `npx playwright test` myself** (all 16 specs across capture/feed/permalink/search) — 16/16 passed in 37.0s, confirming no regression to FEED-01/FEED-03/FEED-04 or any prior gap fix.
+11. **Grepped for debt markers** (`TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER`) across `src/`/`tests/` — zero matches. Checked for `test.skip()`/`test.fixme()` — zero matches.
+12. **Read the new `tests/unit/submit-complaint-sanitization.test.ts` and `tests/unit/sanitize-error.test.ts` directly.** Confirmed both are genuine forced-failure tests (a real non-`.code` Error rejected from a mocked `db.insert(...).returning()`; an Error-with-`.code` and a non-Error value passed through `sanitizeError` directly) — not trivial/tautological assertions.
+13. **Read the new `tests/e2e/permalink.spec.ts` test directly (lines 46-70).** Confirmed the 404 route interception (`page.route("**/complaints/**", ...)`) is registered strictly *after* the real publish flow completes, so the forced 404 can only hit the subsequent photo-display request, not the capture-time upload PUT — a deliberately scoped, non-trivial test.
+14. **Confirmed via `git log --oneline 6bf774d..HEAD -- src/ tests/ README.md`** (where `6bf774d` is the commit carrying the prior `01-VERIFICATION.md`) that only the 10 files declared in `01-12-PLAN.md`'s `files_modified` changed — no other previously-verified artifact could have regressed.
+15. **Read the freshly re-run `01-REVIEW.md` at HEAD (`d38c24b`, dated 2026-07-28)** — an independent code-review pass, not authored by this verification. It reports **0 Critical / 15 Warning / 9 Info**, explicitly confirming both fixes: "submitComplaint and every other UI-facing catch site now route through the shared sanitizeError() utility" and "the permalink page now has a ComplaintPhoto component with the same broken-image -> category-tile fallback FeedCard already had." No new Critical/blocker-tier findings.
+16. **Read `01-UAT.md` in full** — unchanged since the prior verification pass; test 2 (iOS Safari orientation) still records `result: issue` for the CORS-blocking bug, not a completed check. No new human-verification evidence exists for either open item.
+17. **Read `README.md`'s CORS section** — unchanged since plan 01-11 (still documents the production origin + wrangler commands), consistent with no R2 credential access having been exercised since.
 
 ## Goal Achievement
 
@@ -80,64 +65,78 @@ ROADMAP.md marks this phase `Mode: mvp`, but the phase goal text is a capability
 
 | # | Truth | Status | Evidence |
 |---|-------|--------|----------|
-| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | VERIFIED | `CameraCapture.tsx` uses only `getUserMedia`; no `<input type="file">`/`capture=` anywhere in `src/`; happy-path e2e test passes |
-| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | VERIFIED | `CategoryPicker.tsx`, `geolocation.ts`'s `captureBestFix`, server-side `submissionSchema` re-validation unchanged; happy-path e2e test passes end-to-end |
-| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | VERIFIED | `src/lib/feed.ts` untouched; `feed.spec.ts` proximity-ranking e2e test executed this pass — passed (28.1s) |
-| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | VERIFIED | `src/lib/ids.ts`, `SearchById.tsx`, `c/[id]/page.tsx` untouched; `search.spec.ts`/`permalink.spec.ts` executed this pass — all pass |
+| 1 | A user can capture a photo using only the live in-app camera — no gallery/file-picker path exists (SUBM-01) | VERIFIED | `CameraCapture.tsx` uses only `getUserMedia`; no `<input type="file">`/`capture=` anywhere in `src/`; happy-path e2e test re-run this pass, passes |
+| 2 | User picks one of 5 fixed categories; app captures live GPS at submit time, never from EXIF (SUBM-02, SUBM-03) | VERIFIED | `CategoryPicker.tsx`, `geolocation.ts`'s `captureBestFix`, server-side `submissionSchema` re-validation unchanged; e2e test re-run, passes |
+| 3 | A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone (FEED-01) | VERIFIED | `src/lib/feed.ts` untouched; `feed.spec.ts` proximity-ranking e2e test re-run this pass — passed (26.3s) |
+| 4 | Each complaint has a unique, opaque ID and can be opened via search-by-ID or its permalink (SUBM-06, FEED-03, FEED-04) | VERIFIED | `src/lib/ids.ts`, `SearchById.tsx`, `c/[id]/page.tsx` untouched (except the photo block, see truth 22); `search.spec.ts`/`permalink.spec.ts` re-run, all pass |
 | 5 | G-01-3: real-device permission denial hard-blocks with no submit path | VERIFIED | Denial-escalation branches unchanged; e2e denial + escalation specs pass |
 | 6 | G-01-4: category picker renders as a uniform grid | VERIFIED | `CategoryPicker.tsx` untouched; e2e grid-layout spec passes |
-| 7 | G-01-EXTRA-1: production feed loads real data, not a 500 | VERIFIED | `db/client.ts` untouched by 01-11 |
-| 8 | Burned-in geotag/timestamp overlay with visible "…" truncation signal (D-02) | VERIFIED | `src/lib/overlay.ts` untouched; `overlay.test.ts` 11/11 pass |
+| 7 | G-01-EXTRA-1: production feed loads real data, not a 500 | VERIFIED | `db/client.ts` untouched |
+| 8 | Burned-in geotag/timestamp overlay with visible "…" truncation signal (D-02) | VERIFIED | `src/lib/overlay.ts` untouched |
 | 9 | Internal serial `complaints.id` never exposed (T-01-01 IDOR) | VERIFIED | Query surfaces unchanged; re-confirmed via grep |
 | 10 | Poster identity (`submitter_id`) never exposed (D-06) | VERIFIED | Unchanged; re-confirmed via grep |
 | 11 | Presigned-upload key/content-type always server-derived (T-01-02/T-01-03) | VERIFIED | `upload-url/route.ts` untouched |
 | 12 | `complaints` table has `geometry(point,4326)`, GiST index, `public_id` UNIQUE | VERIFIED | `db/schema.ts` untouched |
 | 13 | Build/typecheck clean | VERIFIED | `npx tsc --noEmit` exits 0 (re-run this pass) |
-| 14 | Full unit test suite passes | VERIFIED | `npx vitest run` → 35/35, 6 files (re-run this pass) |
-| 15 | Full e2e suite passes when run | VERIFIED | `npx playwright test` (15 specs) → 15/15 in 30.8s, fresh server (re-run this pass) |
+| 14 | Full unit test suite passes | VERIFIED | `npx vitest run` → 41/41, 8 files (re-run this pass; up from 35/35, +6 new tests for `sanitizeError`/`submitComplaint`) |
+| 15 | Full e2e suite passes when run | VERIFIED | `npx playwright test` (16 specs) → 16/16 in 37.0s, fresh server (re-run this pass) |
 | 16 | No debt markers or `test.fixme()`/`test.skip()` stubs in tracked source | VERIFIED | Repo-wide grep found zero matches (re-run this pass) |
-| 17 | G-01-9: post-capture static preview + stream-stop + Retake | VERIFIED | `capture.spec.ts` state-transition test still passes this pass; source unchanged since last verified |
-| 18 | Rapid double-tapping Publish cannot create two complaints | VERIFIED | Previously `⚠️ PRESENT_BEHAVIOR_UNVERIFIED` — now closed: `01-UAT.md` test 9 records `result: pass`, a genuine human confirmation run after G-01-9's fix made the step reachable |
-| 19 | Upload-error UI shows one fixed sanitized message; never reflects raw browser/network error text (closes G-01-2's code half) | VERIFIED | `CameraCapture.tsx` catch block reads exactly `"Couldn't upload the photo. Check your connection and try again."` unconditionally; new e2e test (`capture.spec.ts:210`) forces a CORS-class failure via `page.route` abort and passes; ran it myself this pass |
-| 20 | On production (https://knowyourarea.in), on a real device, capture→upload→publish completes (closes G-01-2's infra half) | NOT VERIFIABLE BY VERIFIER (human-only, infra) | R2 bucket CORS AllowedOrigins update requires credentials the coding agent does not have; live confirmation requires a real phone against the live origin. Declared explicitly as `user_setup` + designated human-check in `01-11-PLAN.md`. Routed to Human Verification, not counted verified or failed. |
-| 21 | `submitComplaint` never leaks a raw DB/driver error message to the client on any insert failure | ✗ FAILED | `src/actions/submit-complaint.ts:67-76` rethrows any non-unique-violation error verbatim (`throw err`/`throw lastError`); `src/app/capture/page.tsx:61-64` renders `err.message` directly. Confirmed by direct source read and matches this phase's own established sanitization pattern (T-01-07, T-01-09, T-01-11-02) applied everywhere except here. Also independently flagged as CR-01 (Critical) in `01-REVIEW.md` at HEAD, unfixed. |
-| 22 | Permalink page (`/c/[id]`) shows the same category-placeholder tile as the feed card on a 404/missing photo, not a broken-image box | ✗ FAILED | `src/app/c/[id]/page.tsx`'s `<Image>` has no `onError` handler or fallback of any kind (confirmed by direct source read), unlike `FeedCard.tsx`'s `imgError` pattern. Contradicts `01-UAT.md` test 5's recorded `pass` for this must-have when applied to the permalink surface specifically. Also independently flagged as WR-08 in `01-REVIEW.md` at HEAD, unfixed. |
+| 17 | G-01-9: post-capture static preview + stream-stop + Retake | VERIFIED | `capture.spec.ts` state-transition test re-run, passes |
+| 18 | Rapid double-tapping Publish cannot create two complaints | VERIFIED | `01-UAT.md` test 9 records `result: pass` (human-confirmed, unchanged since prior pass) |
+| 19 | Upload-error UI shows one fixed sanitized message; never reflects raw browser/network error text (G-01-2's code half) | VERIFIED | `CameraCapture.tsx`'s upload catch now routes through the shared `sanitizeError` (retrofitted by 01-12), byte-identical copy; e2e test re-run, passes |
+| 20 | On production (https://knowyourarea.in), on a real device, capture→upload→publish completes (G-01-2's infra half) | NOT VERIFIABLE BY VERIFIER (human-only, infra) | R2 bucket CORS AllowedOrigins update requires credentials the coding agent does not have; live confirmation requires a real phone against the live origin. Unchanged this pass — routed to Human Verification. |
+| 21 | `submitComplaint` never leaks a raw DB/driver error message to the client on any insert failure (closes G-01-CR-01) | VERIFIED | `src/actions/submit-complaint.ts` and `src/app/capture/page.tsx` both route through `src/lib/sanitize-error.ts`; `tests/unit/submit-complaint-sanitization.test.ts` forces a raw non-unique-violation error and confirms the rejection contains only the sanitized string while the raw marker is logged server-side. Independently corroborated by a freshly re-run `01-REVIEW.md` (0 Critical). |
+| 22 | Permalink page (`/c/[id]`) shows the same category-placeholder tile as the feed card on a 404/missing photo, not a broken-image box (closes G-01-WR-08) | VERIFIED | `src/components/feed/ComplaintPhoto.tsx` (new) implements the `imgError` → category-tile pattern; `src/app/c/[id]/page.tsx` now renders `<ComplaintPhoto>`; new e2e test (`permalink.spec.ts:46`) forces a photo 404 post-publish and confirms `getByTestId("photo-fallback")` renders. Independently corroborated by `01-REVIEW.md`. |
 
-**Score:** 19/22 truths VERIFIED. 2 FAILED (new gaps this pass). 1 not verifiable by the verifier (human-only infra confirmation, routed to Human Verification).
+**Score:** 21/22 truths VERIFIED. 0 FAILED. 1 not verifiable by the verifier (human-only infra confirmation, routed to Human Verification).
 
 ### Required Artifacts
 
 | Artifact | Expected | Status | Details |
 |----------|----------|--------|---------|
-| `src/components/capture/CameraCapture.tsx` | Sanitized upload-error message, `data-testid="capture-error"` | VERIFIED | Confirmed via direct read (Re-Verification Summary #1) |
-| `tests/e2e/capture.spec.ts` | New forced-upload-failure test (G-01-2); all pre-existing specs pass | VERIFIED | 8/8 pass, including the new test |
-| `README.md` | CORS setup documents the production origin + wrangler commands | VERIFIED | `grep -n 'knowyourarea' README.md` confirms; read in full |
-| `src/actions/submit-complaint.ts` | Should sanitize non-unique-violation errors before they reach the client (established pattern, not yet applied here) | ✗ MISSING SANITIZATION | Rethrows raw errors verbatim; see Gap 1 |
-| `src/app/c/[id]/page.tsx` | Should render a category-placeholder fallback on photo 404, matching `FeedCard.tsx` | ✗ MISSING FALLBACK | No `onError` handling at all; see Gap 2 |
-| All other artifacts from prior passes | Unchanged | VERIFIED (regression check) | `git log --oneline e630d88..HEAD -- src/ tests/ README.md` confirms only `CameraCapture.tsx`, `capture.spec.ts`, and `README.md` changed since the two-passes-ago baseline |
+| `src/lib/sanitize-error.ts` | Single shared sanitization mechanism, never returns raw error message | VERIFIED | Read directly; pure function, always returns `fallback`, logs real detail via `console.error` |
+| `src/actions/submit-complaint.ts` | Insert-catch and exhausted-ids throw route through `sanitizeError` | VERIFIED | Confirmed via direct read; `photoExists` validation throw correctly untouched |
+| `src/app/capture/page.tsx` | Publish catch routes through `sanitizeError`, no verbatim error render | VERIFIED | Confirmed via direct read |
+| `src/components/capture/CameraCapture.tsx` | All three catches (camera-start, geolocation, upload) route through `sanitizeError`, byte-identical copy | VERIFIED | Confirmed via direct read + grep |
+| `src/app/api/feed/route.ts` | Error path routes through `sanitizeError`, preserves log shape + generic body | VERIFIED | Confirmed via direct read; `tests/unit/feed-route-logging.test.ts` still passes |
+| `src/components/feed/ComplaintPhoto.tsx` | Client component with `imgError` → category-tile fallback, `data-testid="photo-fallback"` | VERIFIED | Confirmed via direct read; `FeedCard.tsx` untouched |
+| `src/app/c/[id]/page.tsx` | Photo block replaced by `<ComplaintPhoto>` | VERIFIED | Confirmed via direct read |
+| `tests/unit/sanitize-error.test.ts` | Asserts fallback returned, raw message never returned, detail logged | VERIFIED | Ran myself; 5 cases pass |
+| `tests/unit/submit-complaint-sanitization.test.ts` | Forces non-unique DB failure, asserts sanitized rejection + server-side log | VERIFIED | Ran myself; passes |
+| `tests/e2e/permalink.spec.ts` | New forced-404-photo test asserting category-tile fallback | VERIFIED | Ran myself; 3/3 pass including the new test |
+| All other artifacts from prior passes | Unchanged | VERIFIED (regression check) | `git log --oneline 6bf774d..HEAD -- src/ tests/ README.md` confirms only the 10 files in `01-12-PLAN.md`'s scope changed |
 
 ### Key Link Verification
 
 | From | To | Via | Status | Details |
 |------|----|----|--------|---------|
-| `CameraCapture` upload catch block | `capture-error` UI text | Fixed sanitized string, unconditional | VERIFIED | e2e test asserts the exact sanitized text after a forced failure |
-| Browser → R2 (presigned PUT) | R2 bucket CORS policy | `AllowedOrigins` must include `https://knowyourarea.in` | NOT VERIFIABLE (infra, human-only) | Cannot be checked from the repo; this is Cloudflare dashboard/API state |
-| `submitComplaint` catch block | Client-facing error text | ✗ NOT SANITIZED — raw `err`/`lastError` propagates through the Server Action boundary to `page.tsx`'s `setError(err.message)` | NOT_WIRED (missing sanitization layer) | See Gap 1 |
-| `c/[id]/page.tsx`'s `<Image>` | Category-placeholder fallback | ✗ NO LINK — no `onError` handler exists | NOT_WIRED | See Gap 2 |
-| All other key links from prior passes | — | — | VERIFIED (regression check) | Files untouched, confirmed via the `git log` scoping evidence above |
+| `submitComplaint` catch block | Client-facing error text | `sanitizeError(err, SANITIZED_PUBLISH_MESSAGE, ...)` | VERIFIED | Unit test forces a raw error and confirms only the sanitized string crosses the boundary |
+| `capture/page.tsx` publish catch | Rendered error `<p>` | `sanitizeError(...)` unconditional call, no `err.message` read | VERIFIED | Confirmed via direct read |
+| `CameraCapture`/feed-route catches | Rendered/returned error text | All four sites now call `sanitizeError` | VERIFIED | Confirmed via direct read + grep; byte-identical copy preserved |
+| `c/[id]/page.tsx`'s photo block | Category-placeholder fallback | `<ComplaintPhoto>`'s `onError` → `imgError` state | VERIFIED | New e2e test forces a 404 and confirms the fallback renders |
+| Browser → R2 (presigned PUT) | R2 bucket CORS policy | `AllowedOrigins` must include `https://knowyourarea.in` | NOT VERIFIABLE (infra, human-only) | Cannot be checked from the repo; unchanged this pass |
+| All other key links from prior passes | — | — | VERIFIED (regression check) | Files untouched outside the 01-12 scope, confirmed via `git log` |
+
+### Data-Flow Trace (Level 4)
+
+| Artifact | Data Variable | Source | Produces Real Data | Status |
+|----------|---------------|--------|---------------------|--------|
+| `ComplaintPhoto` | `src` prop | `photoUrl(row.photo_key)` computed server-side in `c/[id]/page.tsx` from a real DB row | Yes | FLOWING |
+| `sanitizeError`'s logged detail | `error.name`/`.message`/`.code` | The actually-thrown/rejected error object at each call site (not a static placeholder) | Yes | FLOWING |
 
 ### Behavioral Spot-Checks
 
 | Behavior | Command | Result | Status |
 |----------|---------|--------|--------|
-| G-01-2 forced-upload-failure sanitized error test | `npx playwright test tests/e2e/capture.spec.ts` | 8/8 passed (new test: 5.3s) | PASS |
-| Full capture-flow regression (happy path, denials, escalations, grid, preview/Retake, upload failure) | (same run as above) | 8/8 | PASS |
-| Full e2e suite (capture + feed + permalink + search) | `npx playwright test` | 15/15 passed in 30.8s | PASS |
+| Shared `sanitizeError` unit coverage | `npx vitest run tests/unit/sanitize-error.test.ts` (part of full run) | 5/5 passed | PASS |
+| Forced non-unique-violation DB failure sanitized end-to-end | `npx vitest run tests/unit/submit-complaint-sanitization.test.ts` (part of full run) | 1/1 passed | PASS |
+| Forced-404-photo permalink fallback | `npx playwright test tests/e2e/permalink.spec.ts` | 3/3 passed (21.3s) | PASS |
+| Forced-upload-failure sanitized error (regression) | `npx playwright test tests/e2e/capture.spec.ts` | 8/8 passed (12.2s) | PASS |
+| Full e2e suite (capture + feed + permalink + search) | `npx playwright test` | 16/16 passed in 37.0s | PASS |
 | Typecheck | `npx tsc --noEmit` | exits 0 | PASS |
-| Full unit test suite | `npx vitest run` | 35/35 passed (6 files) | PASS |
-| Scoped lint on touched files | `npx eslint src/components/capture/CameraCapture.tsx tests/e2e/capture.spec.ts README.md` | 0 errors (1 expected info notice for the non-JS README) | PASS |
-| Dev server freshness (precondition for e2e runs) | 5x `curl localhost:3000` | 5/5 returned 200 | PASS |
+| Full unit test suite | `npx vitest run` | 41/41 passed (8 files) | PASS |
 | Debt-marker scan | `grep -rn "TBD\|FIXME\|XXX\|TODO\|HACK\|PLACEHOLDER" src/ tests/` | zero matches | PASS |
+| `git log` scoping check | `git log --oneline 6bf774d..HEAD -- src/ tests/ README.md` | Only the 10 declared files changed | PASS |
 
 ### Probe Execution
 
@@ -147,50 +146,45 @@ Not applicable — no `scripts/*/tests/probe-*.sh` conventions exist in this pro
 
 | Requirement | Source Plan(s) | Description | Status | Evidence |
 |-------------|-------------|-------------|--------|----------|
-| SUBM-01 | 01-02, 01-03, 01-05, 01-09, 01-10, 01-11 | Live in-app camera capture only, no gallery upload | SATISFIED* | Core capability works end-to-end (e2e-proven); *caveat: the publish action's failure-path error handling has an unremediated info-disclosure gap (Gap 1) |
+| SUBM-01 | 01-02, 01-03, 01-05, 01-09, 01-10, 01-11, 01-12 | Live in-app camera capture only, no gallery upload | SATISFIED | Core capability works end-to-end (e2e-proven); the publish path's info-disclosure gap (prior Gap 1) is now closed by 01-12 |
 | SUBM-02 | 01-01, 01-03, 01-05 | 5 fixed categories, server-validated | SATISFIED | Unchanged since prior pass |
-| SUBM-03 | 01-02, 01-03, 01-05 | Live GPS at submit time, never EXIF | SATISFIED | Unchanged; authoritative GPS is a DB column, independent of the canvas overlay |
+| SUBM-03 | 01-02, 01-03, 01-05, 01-12 | Live GPS at submit time, never EXIF | SATISFIED | Unchanged; the publish-path sanitization fix (01-12) doesn't touch the GPS-capture logic |
 | SUBM-06 | 01-01, 01-02 | Unique opaque searchable ID | SATISFIED | Unchanged |
 | FEED-01 | 01-02, 01-04, 01-06, 01-07 | Proximity/recency feed, viewable by anyone | SATISFIED | Unchanged; e2e proximity-ranking test passes this pass |
 | FEED-03 | 01-04 | Search by ID | SATISFIED | Unchanged; e2e search-by-ID tests pass this pass |
-| FEED-04 | 01-04 | Shareable permalink | SATISFIED* | Core permalink rendering works (e2e-proven); *caveat: the photo-404 graceful-degradation pattern the feed already has is missing on this exact surface (Gap 2) |
+| FEED-04 | 01-04, 01-12 | Shareable permalink | SATISFIED | Core permalink rendering works (e2e-proven); the photo-404 graceful-degradation gap (prior Gap 2) is now closed by 01-12 |
 
-No orphaned requirements — the same 7 IDs mapped in REQUIREMENTS.md's traceability table are all cited across plans 01-01 through 01-11. All 7 formal requirement descriptions have their core capability satisfied; two carry a caveat pointing at the gaps below.
+No orphaned requirements — the same 7 IDs mapped in REQUIREMENTS.md's traceability table are all cited across plans 01-01 through 01-12. All 7 formal requirement descriptions have their core capability satisfied with no remaining caveats.
 
-**Documentation inconsistency (informational, not a new finding):** `.planning/REQUIREMENTS.md` still shows `SUBM-01`/`SUBM-03` checked `[x]` while the other 5 Phase 1 requirements remain `[ ]`, and the Traceability table still lists all 7 as "Gaps Found" — an internal inconsistency in the requirements doc itself, unchanged since the prior verification pass. Recommend reconciling this once this VERIFICATION.md reaches `status: passed`.
+**Documentation inconsistency (informational, not a new finding, unchanged from prior pass):** `.planning/REQUIREMENTS.md` still shows only `SUBM-01`/`SUBM-03`/`FEED-04` checked `[x]` while the other 4 Phase 1 requirements remain `[ ]`, and the Traceability table still lists all 7 as "Gaps Found" — an internal inconsistency in the requirements doc itself. Now that all 7 requirements' underlying gaps are closed at the code level, recommend reconciling this doc once the phase's remaining human-verification items close out to `passed`.
 
 ### Anti-Patterns Found
 
-| File | Line | Pattern | Severity | Impact |
-|------|------|---------|----------|--------|
-| `src/actions/submit-complaint.ts` | 67-76 | Raw error rethrown verbatim on non-unique-violation DB failure | 🛑 Blocker | See Gap 1 — information disclosure, breaks this phase's own established sanitization pattern |
-| `src/app/c/[id]/page.tsx` | 74-83 | `<Image>` has no `onError`/fallback, unlike `FeedCard.tsx` | 🛑 Blocker | See Gap 2 — contradicts the phase's stated must-have for the permalink surface specifically |
+None this pass. The two prior blocker-severity anti-patterns (raw error rethrow in `submit-complaint.ts`; missing `onError` fallback in `c/[id]/page.tsx`) are both fixed and re-verified above.
 
-`01-REVIEW.md` (re-run at HEAD `12fdf3f`, after plan 01-11) reports 1 Critical (CR-01, matches Gap 1 above), 12 Warning, 7 Info findings, `status: issues_found`. Both Warning-severity findings independently spot-checked this pass (WR-08, matching Gap 2 above, and the previously-triaged empty-`lat`/`lng` coercion) are real and unaddressed, but the remaining 10 Warnings and 7 Info findings (`photoKey` not single-use, no rate limiting on upload-url/submit — explicitly deferred to Phase 4 per WR-07/01-UAT.md test 8's sign-off, `photoExists` error conflation, missing DB-level category CHECK constraint, `FeedList` missing fetch dedupe, duplicated category-label/icon maps, migration doesn't self-provision PostGIS, etc.) are correctness/robustness edge cases unrelated to this phase's 7 declared requirement IDs or its observable truths, consistent with how prior verification passes triaged this class of finding — noted for visibility, not blocking.
+`01-REVIEW.md` (freshly re-run at HEAD `d38c24b`, after plan 01-12 landed) reports 0 Critical, 15 Warning, 9 Info findings, `status: issues_found`. It explicitly confirms both this round's fixes landed. The remaining Warnings/Info (empty `lat`/`lng` still resolving to a fake `(0,0)` fix in three call sites, `photoKey` not single-use, `photoExists` error conflation, no rate limiting on upload-url/submit — explicitly deferred to Phase 4 per prior review/UAT sign-off, missing DB-level category CHECK constraint, migration doesn't self-provision PostGIS, a `SearchById` case-sensitivity gap, a missing in-flight guard in `captureBestFix`'s geolocation watch, and a cursor-decoder type-validation gap) are correctness/robustness edge cases unrelated to this phase's 7 declared requirement IDs, its observable truths, or the two gaps this round specifically closed — consistent with how every prior verification pass in this phase triaged this class of finding. Noted for visibility, not blocking; candidates for a future gap-closure round if the project wants to keep hardening this phase, but they are not part of this phase's stated goal or success criteria.
 
 Repo-wide grep of `src/`/`tests/` for `TBD|FIXME|XXX|TODO|HACK|PLACEHOLDER` and `test.fixme()`/`test.skip()` found zero matches — no debt-marker gate violation.
 
 ### Human Verification Required
 
-2 items remain open (both are real-infra/real-device checks that cannot be automated; the double-tap item from the prior pass is now closed via `01-UAT.md`'s human-confirmed pass):
+2 items remain open (unchanged from the prior pass — both are real-infra/real-device checks that cannot be automated, and plan 01-12 correctly did not attempt either, per its own stated scope):
 
-1. **G-01-2's infra half — R2 CORS change + live production confirmation.** A human with Cloudflare R2 credentials must add `https://knowyourarea.in` to the bucket's CORS `AllowedOrigins` (README.md now documents the exact `wrangler` commands), then confirm on a real phone browser against `https://knowyourarea.in/capture` that capture→upload→publish completes with no error text and Publish Report enables. This is genuinely unautomatable — the coding agent has no R2 credentials, and the effect can't be reproduced on localhost/Playwright (both origins were always CORS-allowed).
-2. **iOS Safari real-device orientation/legibility (01-UAT.md test 2).** This check was never actually completed — the tester's attempt was blocked by the G-01-2 CORS bug before a captured photo could even be seen on production, so `01-UAT.md` records it as `result: issue` (the CORS bug itself), not a genuine finding about orientation/legibility. Must be re-attempted once item 1 above is unblocked.
+1. **G-01-2's infra half — R2 CORS change + live production confirmation.** A human with Cloudflare R2 credentials must add `https://knowyourarea.in` to the bucket's CORS `AllowedOrigins` (README.md documents the exact `wrangler` commands), then confirm on a real phone browser against `https://knowyourarea.in/capture` that capture→upload→publish completes with no error text and Publish Report enables. This is genuinely unautomatable — the coding agent has no R2 credentials, and the effect can't be reproduced on localhost/Playwright (both origins were always CORS-allowed).
+2. **iOS Safari real-device orientation/legibility (01-UAT.md test 2).** Still unattempted since the CORS bug blocked the tester before a captured photo could even be seen on production. Must be re-attempted once item 1 above is unblocked.
 
 ### Gaps Summary
 
-**2 new blocking gaps found this pass, both independently confirmed by direct source reading (not inferred from any SUMMARY.md or prior UAT claim), and both flagged separately by this phase's own freshly re-run `01-REVIEW.md`:**
+**Both blocking gaps from the prior `01-VERIFICATION.md` pass are closed, independently confirmed by direct source reading and by running the automated test suites myself (not trusted from `01-12-SUMMARY.md`):**
 
-1. **`submitComplaint`'s insert-failure path leaks raw DB/driver error text to the UI** (CR-01 in `01-REVIEW.md`) — the one place in this codebase that never received the sanitization treatment this project has otherwise applied consistently three times over (camera/geolocation errors in Plan 01-05, feed-route errors in Plan 01-06, and — just now, in this very re-verification round — upload errors in Plan 01-11). This is a pre-existing gap (code unchanged since Plan 01-03), not a regression, but it is squarely within this phase's own established "no raw error leaks" bar and directly affects the publish action central to SUBM-01/SUBM-03.
-2. **The permalink page has no photo-404 fallback**, unlike the feed card (WR-08 in `01-REVIEW.md`) — contradicting `01-UAT.md` test 5's recorded `pass` for this must-have when the permalink surface specifically is examined at the source level. Pre-existing (code unchanged since Plan 01-04), not a regression, but the permalink is FEED-04's actual shareable-link artifact and is arguably the more consequential surface for this backstop, per the review's own note.
+1. **`submitComplaint`'s insert-failure path no longer leaks raw DB/driver error text to the UI** (closes CR-01 / prior Gap 1). A single shared `sanitizeError` utility now backs the publish path plus the three prior ad-hoc sites (camera/geolocation, upload, feed route) — collapsing four independent hand-rolled implementations into one, exactly as the plan's `assumption_delta_decision` intended. Proven by a new unit test that forces a raw, marker-bearing DB error and confirms the marker never crosses the Server Action boundary while it is still logged server-side.
+2. **The permalink page now has a photo-404 fallback**, matching the feed card's existing pattern (closes WR-08 / prior Gap 2), via a new `ComplaintPhoto` client component. `FeedCard` itself is untouched. Proven by a new, carefully-scoped e2e test that forces a 404 only on the post-publish photo-display request (never the capture-time upload PUT).
 
-**Plan 01-11's own deliverables are fully verified and closed at the code level:** the sanitized upload-error message, its e2e coverage, and the README CORS documentation are all confirmed present, substantive, and passing. The two items 01-11 itself declared as human-only/infra (R2 CORS application, live production confirmation) remain open exactly as the plan anticipated — not failures, correctly routed to Human Verification.
+**No regressions:** typecheck clean, full unit suite 41/41 (up from 35/35 — 6 new tests, all passing), full e2e suite 16/16 (up from 15/15 — 1 new test, all passing), zero debt markers, `git log` confirms no previously-verified artifact outside the 10 files `01-12-PLAN.md` declared was touched. A freshly re-run, independent `01-REVIEW.md` corroborates both fixes and reports 0 Critical findings.
 
-**No regressions:** typecheck clean, full unit suite 35/35, full e2e suite 15/15, lint clean on touched files, zero debt markers, `git log` confirms no previously-verified artifact besides the three files 01-11 declared was touched.
-
-**Status is `gaps_found`, not `human_needed` or `passed`,** because two blocker-severity truths (the raw-error-leak in the publish path, and the missing permalink photo-404 fallback) are independently confirmed as currently FAILED in the codebase — this takes precedence over the two genuinely human-only items per the verification decision tree. Recommend routing these two gaps to `/gsd-plan-phase --gaps` for a focused closure plan (both are small, well-scoped fixes matching an already-established pattern in this same codebase), after which the two remaining human-only items (R2 CORS infra + iOS Safari real-device check) can close out the phase to `passed`.
+**Status is `human_needed`, not `passed` or `gaps_found`,** because both blocker-severity truths from the prior pass are now VERIFIED (no FAILED items remain) — but 2 genuinely human-only items (R2 bucket CORS production infra change + live-device confirmation; the iOS Safari real-device orientation check that depends on it) remain open, unchanged since plan 01-11 first declared them out of the coding agent's reach. Per the verification decision tree, human verification items take priority over an otherwise-clean pass. Once a human completes both open checks (R2 CORS dashboard change + a real-phone production run, then the iOS Safari check), this phase is ready to close to `passed`.
 
 ---
 
-_Verified: 2026-07-27T22:00:00Z_
+_Verified: 2026-07-28T13:35:00Z_
 _Verifier: Claude (gsd-verifier)_
