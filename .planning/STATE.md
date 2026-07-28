@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 01
 current_phase_name: core-capture-to-feed-skeleton
 status: executing
-stopped_at: Completed 01-11-PLAN.md - G-01-2 upload-error sanitization + README CORS docs closed; R2 CORS user_setup + real-device human-check still open (end-of-phase UAT)
-last_updated: "2026-07-27T15:55:00.827Z"
-last_activity: 2026-07-27
-last_activity_desc: Phase 01 execution started
+stopped_at: Completed 01-12-PLAN.md - shared sanitizeError utility (G-01-CR-01) + permalink photo-404 fallback (G-01-WR-08) closed; all 12 plans in phase 01 now complete, phase ready for re-verification
+last_updated: "2026-07-28T07:43:35.342Z"
+last_activity: 2026-07-28
+last_activity_desc: Completed 01-12-PLAN.md
 progress:
   total_phases: 1
   completed_phases: 1
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 12
+  completed_plans: 12
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 
 ## Current Position
 
-Phase: 01 (core-capture-to-feed-skeleton) — EXECUTING
-Plan: 2 of 11
-Status: Ready to execute
-Last activity: 2026-07-27 — Phase 01 execution started
+Phase: 01 (core-capture-to-feed-skeleton) — ALL PLANS COMPLETE
+Plan: 12 of 12
+Status: Awaiting re-verification (gap-closure round complete)
+Last activity: 2026-07-28 — Completed 01-12-PLAN.md
 
 Progress: [██████████] 100%
 
@@ -69,6 +69,7 @@ Progress: [██████████] 100%
 | Phase 01 P09 | 10min | 1 tasks | 2 files |
 | Phase 01 P10 | 5min | 2 tasks | 3 files |
 | Phase 01 P11 | 2min | 2 tasks | 3 files |
+| Phase 01 P12 | 6min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,8 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-10: Always-mounted <video> with an absolutely-positioned <img> preview overlay preserves the stream binding across generic error/retry paths (no remount)
 - [Phase ?]: 01-11: Removed err-typed branching in CameraCapture.tsx's upload catch block entirely — always render one fixed sanitized message, never raw thrown/network error text
 - [Phase ?]: 01-11: R2 CORS production-origin change (user_setup) and the real-device human-check remain open post-plan — deferred to end-of-phase UAT per workflow.human_verify_mode: end-of-phase
+- [Phase ?]: [Phase ?]: 01-12: Promoted sanitizeError to the single primary error-sanitization mechanism, retrofitting the four prior ad-hoc call sites (camera-start, geolocation, upload, feed route) onto it — no fifth parallel implementation
+- [Phase ?]: [Phase ?]: 01-12: ComplaintPhoto client component copies FeedCard's CATEGORY_ICONS/CATEGORY_TILE_STYLES verbatim rather than shared-extracting, keeping the permalink photo-404 fix a point-fix that never risks FeedCard's already-working fallback
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-27T15:55:00.820Z
-Stopped at: Completed 01-11-PLAN.md - G-01-2 upload-error sanitization + README CORS docs closed; R2 CORS user_setup + real-device human-check still open (end-of-phase UAT)
+Last session: 2026-07-28T07:43:35.336Z
+Stopped at: Completed 01-12-PLAN.md - shared sanitizeError utility (G-01-CR-01) + permalink photo-404 fallback (G-01-WR-08) closed; all 12 plans in phase 01 now complete, phase ready for re-verification
 Resume file: None

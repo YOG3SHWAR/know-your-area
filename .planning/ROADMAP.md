@@ -35,7 +35,7 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. A submitted complaint appears in a feed of nearby complaints sorted by proximity/recency, viewable by anyone.
   4. Each complaint has a unique, opaque ID and can be opened directly via search-by-ID or its permalink URL.
 
-**Plans**: 12 plans (11 executed; 01-12 planned — gap-closure round 6)
+**Plans**: 12/12 plans executed
 **Wave 1**
 
 - [x] 01-01-PLAN.md — Project scaffold, PostGIS data layer + shared type contract, opaque IDs, test harness (Wave 1)
@@ -73,7 +73,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 **Gap Closure — Round 6** *(from 01-VERIFICATION.md re-verification — CR-01 blocker: submitComplaint leaks raw DB errors to the UI; WR-08 blocker: permalink page has no photo-404 fallback)*
 
-- [ ] 01-12-PLAN.md — One shared `sanitizeError` utility applied to the publish path (G-01-CR-01) + retrofitted into the 3 prior ad-hoc sanitization sites (camera/geo, feed route, upload); separate permalink photo-404 category-tile fallback (G-01-WR-08) (Gap Wave 1)
+- [x] 01-12-PLAN.md — One shared `sanitizeError` utility applied to the publish path (G-01-CR-01) + retrofitted into the 3 prior ad-hoc sanitization sites (camera/geo, feed route, upload); separate permalink photo-404 category-tile fallback (G-01-WR-08) (Gap Wave 1)
 
 **UI hint**: yes
 
@@ -197,7 +197,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Capture-to-Feed Skeleton | 11/11 | In Progress|  |
+| 1. Core Capture-to-Feed Skeleton | 12/12 | In Progress|  |
 | 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |
