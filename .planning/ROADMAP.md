@@ -13,7 +13,7 @@ Know Your Area is built as a sequence of vertical MVP slices — each phase ship
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Core Capture-to-Feed Skeleton** - Live camera + GPS capture → instant publish → nearby feed → open by ID/permalink (stub auth)
+- [x] **Phase 1: Core Capture-to-Feed Skeleton** - Live camera + GPS capture → instant publish → nearby feed → open by ID/permalink (stub auth) (completed 2026-07-28)
 - [ ] **Phase 2: Real Authentication & Write-Gating** - Google OAuth + phone OTP normalized to one identity; anonymous browse, gated writes
 - [ ] **Phase 3: Location Pipeline — Geocoding & Duplicate Threading** - Async pipeline: reverse-geocode to locality/ward/pincode + thread same-issue reports onto the original
 - [ ] **Phase 4: AI Verification, Photo Privacy & Abuse Prevention** - Auto face/plate blur + AI pre-publish gate (category/location/genuineness) + submission rate-limiting
@@ -197,7 +197,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Core Capture-to-Feed Skeleton | 12/12 | In Progress|  |
+| 1. Core Capture-to-Feed Skeleton | 12/12 | Complete    | 2026-07-28 |
 | 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |

@@ -17,11 +17,11 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Complaint Submission
 
 - [x] **SUBM-01**: User can capture a live photo in-app (camera only — gallery/file-picker upload is blocked)
-- [ ] **SUBM-02**: User selects one of 5 fixed categories when submitting (Pothole/Road damage, Garbage/Sanitation, Streetlight/Electrical, Water/Drainage, Traffic lights)
+- [x] **SUBM-02**: User selects one of 5 fixed categories when submitting (Pothole/Road damage, Garbage/Sanitation, Streetlight/Electrical, Water/Drainage, Traffic lights)
 - [x] **SUBM-03**: App auto-captures the user's GPS location at submission time (read live from the browser, not from image EXIF)
 - [ ] **SUBM-04**: Submitted location is reverse-geocoded to the lowest available address level (locality/ward/pincode)
 - [ ] **SUBM-05**: Submitted photos are automatically processed to blur faces and license plates before publishing
-- [ ] **SUBM-06**: Each complaint receives a unique, opaque, searchable ID upon submission
+- [x] **SUBM-06**: Each complaint receives a unique, opaque, searchable ID upon submission
 
 ### Verification & Anti-Abuse
 
@@ -39,9 +39,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Feed & Discovery
 
-- [ ] **FEED-01**: Landing page shows a feed of complaints near the user's current location
+- [x] **FEED-01**: Landing page shows a feed of complaints near the user's current location
 - [ ] **FEED-02**: Feed is ranked using a combination of recency, proximity, and engagement (not a flat chronological list)
-- [ ] **FEED-03**: User can search for a complaint by its ID
+- [x] **FEED-03**: User can search for a complaint by its ID
 - [x] **FEED-04**: Each complaint has a shareable permalink
 
 ### Engagement & Moderation
