@@ -84,16 +84,15 @@ Notes:
 
 ### Phase 2: Real Authentication & Write-Gating
 
-**Goal**: Replace the stub identity with real accounts (Google OAuth + phone OTP) normalized to one internal `user_id`, gate all write actions behind login, and keep feed browsing fully anonymous.
+**Goal**: Replace the stub identity with a real Google OAuth account normalized to one internal `user_id`, gate all write actions behind login, and keep feed browsing fully anonymous. Phone OTP (AUTH-02) is deferred out of this phase (Phase 2 discussion, 2026-07-28) — see `02-CONTEXT.md` D-01.
 **Mode:** mvp
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04
+**Requirements**: AUTH-01, AUTH-03, AUTH-04 (AUTH-02 deferred, unscheduled)
 **Success Criteria** (what must be TRUE):
 
   1. A user can sign up / log in with Google OAuth.
-  2. A user can sign up / log in with a phone number + OTP.
-  3. A logged-in user stays logged in across a browser refresh/return.
-  4. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account.
+  2. A logged-in user stays logged in across a browser refresh/return.
+  3. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account (login gate fires on entry to `/capture`, before camera/GPS permission is requested).
 
 **Plans**: TBD
 **UI hint**: yes
@@ -101,7 +100,8 @@ Notes:
 Notes:
 
 - **Spike (blocking for Phase 4): AI provider cost benchmarking.** Measure actual per-image token cost across candidate vision models (e.g., Gemini Flash-Lite vs. GPT-4o vs. a self-hosted open model) using real phone-camera-resolution photos, not demo images (Pitfall 5). Run it here so results are ready before provider selection in Phase 4.
-- Normalize both auth providers into one identity shape at the edge so downstream services never branch on "OAuth vs. OTP" (Architecture Pattern 3).
+- Phone OTP (AUTH-02) is deferred, not built even as scaffold — no Credentials provider, no phone schema field, no SMS vendor integration. Keep the Auth.js setup and `submitterId` schema shape provider-agnostic so OTP can be added later without a data migration.
+- No device-id → real-account data migration needed — no real users exist yet on the current deployment.
 
 ### Phase 3: Location Pipeline — Geocoding & Duplicate Threading
 
