@@ -26,18 +26,14 @@ reason: "Re-tested after G-01-2's R2 CORS fix was applied to production. Photo c
 ### 3. Real device: permission-denial hard block
 
 expected: On a real device, deny camera or location permission — the exact UI-SPEC hard-block copy appears with settings guidance and no submit path is reachable.
-result: resolved
-reported: "The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission."
-severity: blocker
-resolved_by: "Plan 01-05: routed CameraCapture's getUserMedia()/getCurrentPosition() denial back through PermissionGate's shared hard-block state (deniedRef latch), instead of rendering raw err.message. Verified via tests/e2e/capture.spec.ts denial specs (currently passing) and phase 01-VERIFICATION.md re-verification pass. Not re-tested live on a real device since the fix; e2e coverage + code re-verification are the evidence of closure."
+result: pass
+reason: "Originally reported: 'The request is not allowed by the user agent or the platform in the current context, possibly because the user denied permission.' Fixed by Plan 01-05: routed CameraCapture's getUserMedia()/getCurrentPosition() denial back through PermissionGate's shared hard-block state (deniedRef latch), instead of rendering raw err.message. Verified via tests/e2e/capture.spec.ts denial specs (passing) and independently re-confirmed in 01-VERIFICATION.md's 2026-07-28 re-verification pass (truth 5: VERIFIED)."
 
 ### 4. Real device: category picker touch targets and double-tap guard
 
 expected: The 5-category picker shows amber-selected chips at 44px touch targets, comfortably tappable; rapid double-tapping Publish cannot create two complaints.
-result: resolved
-reported: "chips not arranged properly (uneven wrap: some chips full-width alone, others paired) — camera flip complaint withdrawn by user, confirmed intentional rear-camera-only design"
-severity: cosmetic
-resolved_by: "Plan 01-05: CategoryPicker.tsx switched from flex-wrap to a fixed grid (grid grid-cols-2), giving every chip a uniform cell regardless of label length while keeping the 44px touch target. Verified via tests/e2e/capture.spec.ts 'category picker renders uniform-width chips (G-01-4)' (currently passing). The double-tap-guard half of this test is tracked separately below (test 9) — it was never actually exercised by this test, only the chip layout was reported broken."
+result: pass
+reason: "Originally reported: chips not arranged properly (uneven wrap: some chips full-width alone, others paired) — camera flip complaint withdrawn by user, confirmed intentional rear-camera-only design. Fixed by Plan 01-05: CategoryPicker.tsx switched from flex-wrap to a fixed grid (grid grid-cols-2), giving every chip a uniform cell regardless of label length while keeping the 44px touch target. Verified via tests/e2e/capture.spec.ts 'category picker renders uniform-width chips (G-01-4)' (passing) and independently re-confirmed in 01-VERIFICATION.md's 2026-07-28 re-verification pass (truth 6: VERIFIED). The double-tap-guard half of this test is tracked separately as test 9 (already passing)."
 
 ### 5. Forced photo 404 renders a placeholder, not a broken image
 
@@ -68,8 +64,7 @@ result: pass
 ## Summary
 
 total: 9
-passed: 7
-resolved: 2
+passed: 9
 issues: 0
 pending: 0
 skipped: 0
