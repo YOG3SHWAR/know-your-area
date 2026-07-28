@@ -1,8 +1,8 @@
 import { sql } from "drizzle-orm";
 import { notFound } from "next/navigation";
-import Image from "next/image";
 import Link from "next/link";
 
+import { ComplaintPhoto } from "@/components/feed/ComplaintPhoto";
 import { LocationRequester } from "@/components/feed/LocationRequester";
 import { db } from "@/lib/db/client";
 import { formatDistance, formatRelativeTime } from "@/lib/distance";
@@ -72,15 +72,11 @@ export default async function ComplaintPage({
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-6">
       <LocationRequester hasLocation={hasLocation} />
       <div className="overflow-hidden rounded-md border">
-        <div className="relative aspect-video w-full bg-zinc-100">
-          <Image
-            src={photoUrl(row.photo_key)}
-            alt={categoryLabel(category)}
-            fill
-            unoptimized
-            className="object-cover"
-          />
-        </div>
+        <ComplaintPhoto
+          src={photoUrl(row.photo_key)}
+          category={category}
+          alt={categoryLabel(category)}
+        />
         <div className="flex flex-col gap-1 p-3 text-sm">
           <span className="font-medium">{categoryLabel(category)}</span>
           <span className="text-muted-foreground">
