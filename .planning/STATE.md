@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Real Authentication & Write-Gating
-status: "Phase 01 shipped — PR #5"
-stopped_at: Phase 02 UI-SPEC approved
-last_updated: "2026-07-28T17:02:40.457Z"
-last_activity: 2026-07-28
-last_activity_desc: Phase 02 planning complete
+current_phase: 02
+current_phase_name: real-authentication-write-gating
+status: executing
+stopped_at: Completed 02-01-PLAN.md
+last_updated: "2026-07-29T10:12:48.266Z"
+last_activity: 2026-07-29
+last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 12
+  completed_plans: 13
 ---
 
 # Project State
@@ -23,16 +23,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Make civic problem reporting dead simple and visible — so people who don't know (or don't trust) official government reporting channels can still report and see local issues, with photo-verified, deduplicated, publicly visible complaints.
-**Current focus:** Phase 01 — core-capture-to-feed-skeleton
+**Current focus:** Phase 02 — real-authentication-write-gating
 
 ## Current Position
 
-Phase: 2 — Real Authentication & Write-Gating
-Plan: Not started
-Status: Phase 01 shipped — PR #5
-Last activity: 2026-07-28 — Phase 02 planning complete
+Phase: 02 (real-authentication-write-gating) — EXECUTING
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-07-29 — Phase 02 execution started
 
-Progress: [██████████] 100%
+Progress: [█████████░] 87%
 
 ## Performance Metrics
 
@@ -70,6 +70,7 @@ Progress: [██████████] 100%
 | Phase 01 P10 | 5min | 2 tasks | 3 files |
 | Phase 01 P11 | 2min | 2 tasks | 3 files |
 | Phase 01 P12 | 6min | 3 tasks | 8 files |
+| Phase 02 P01 | 35min | 3 tasks | 8 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,10 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-11: R2 CORS production-origin change (user_setup) and the real-device human-check remain open post-plan — deferred to end-of-phase UAT per workflow.human_verify_mode: end-of-phase
 - [Phase ?]: [Phase ?]: 01-12: Promoted sanitizeError to the single primary error-sanitization mechanism, retrofitting the four prior ad-hoc call sites (camera-start, geolocation, upload, feed route) onto it — no fifth parallel implementation
 - [Phase ?]: [Phase ?]: 01-12: ComplaintPhoto client component copies FeedCard's CATEGORY_ICONS/CATEGORY_TILE_STYLES verbatim rather than shared-extracting, keeping the permalink photo-404 fix a point-fix that never risks FeedCard's already-working fallback
+- [Phase ?]: Google is the only social provider (D-01) — no Credentials provider, no phone/otp field
+- [Phase ?]: Kept Better Auth default singular table names (no usePlural) per RESEARCH.md Assumption A3
+- [Phase ?]: drizzle-kit CLI invocations require DOTENV_CONFIG_PATH=.env.local since drizzle-kit's bundled dotenv only auto-loads .env by default
+- [Phase ?]: drizzle-kit push recurringly drops complaints.location SRID to 0 on every push (not just first) — must re-apply the documented ALTER fix after every push
 
 ### Pending Todos
 
@@ -128,6 +133,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-28T15:33:12.722Z
-Stopped at: Phase 02 UI-SPEC approved
-Resume file: /Users/yogi/Documents/projects/know-your-area/.planning/phases/02-real-authentication-write-gating/02-UI-SPEC.md
+Last session: 2026-07-29T10:12:48.259Z
+Stopped at: Completed 02-01-PLAN.md
+Resume file: None
