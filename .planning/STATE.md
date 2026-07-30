@@ -6,11 +6,11 @@ current_phase: 3
 current_phase_name: Location Pipeline — Geocoding & Duplicate Threading
 status: planning
 stopped_at: Completed 02-03-PLAN.md
-last_updated: "2026-07-30T14:57:31.285Z"
+last_updated: "2026-07-30T15:04:27.919Z"
 last_activity: 2026-07-30
 last_activity_desc: Phase 02 complete, transitioned to Phase 3
 progress:
-  total_phases: 2
+  total_phases: 3
   completed_phases: 2
   total_plans: 15
   completed_plans: 15
@@ -130,6 +130,10 @@ Flagged spikes (must be run within their phase, not silently assumed):
 - Phase 2: AI provider cost benchmarking with real phone-camera-resolution images (blocking for Phase 4 provider selection).
 - Phase 3: Nominatim India geocoding accuracy across dense/medium/rural coordinates.
 - Phase 3: 200m dedup radius false-positive rate in dense metros (30-40% risk); DBSCAN / photo-similarity as fallback.
+
+### Roadmap Evolution
+
+- Phase 02.1 edited: edited fields: title, goal (shortened title, added real goal statement)
 
 ## Deferred Items
 

@@ -116,6 +116,17 @@ Notes:
 - Phone OTP (AUTH-02) is deferred, not built even as scaffold — no Credentials provider, no phone schema field, no SMS vendor integration. Keep the Auth.js setup and `submitterId` schema shape provider-agnostic so OTP can be added later without a data migration.
 - No device-id → real-account data migration needed — no real users exist yet on the current deployment.
 
+### Phase 02.1: Navigation & App Shell (INSERTED)
+
+**Goal:** Wire Phase 1's capture/feed and Phase 2's auth into one discoverable app — add a persistent header with a "Report a problem" CTA (routes to /capture) and account/login state, so a real visitor landing on `/` can actually find and use the flows that already exist.
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 02.1 to break down)
+
 ### Phase 3: Location Pipeline — Geocoding & Duplicate Threading
 
 **Goal**: Stand up the async processing pipeline that turns a raw submission into a geocoded, deduplicated feed item — resolve the lowest-available Indian address level for display, and thread same-category, same-location reports onto the original instead of cluttering the feed with visual duplicates.
