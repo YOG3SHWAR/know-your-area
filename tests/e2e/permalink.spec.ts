@@ -17,6 +17,9 @@ test("permalink page: renders the correct complaint at /c/{id} (FEED-04)", async
 
   await page.getByRole("link").filter({ hasText: "Streetlight/Electrical" }).first().click();
   await expect(page).toHaveURL(/\/c\/[A-Z0-9-]+(\?.*)?$/, { timeout: 10_000 });
+  // AUTH-04: the public permalink page never redirects to /login — browse
+  // stays open even for a caller with no session on this request.
+  await expect(page).not.toHaveURL(/\/login/);
 
   await expect(page.getByText("Streetlight/Electrical")).toBeVisible();
   await expect(page.getByText("Reported by a nearby resident")).toBeVisible();
