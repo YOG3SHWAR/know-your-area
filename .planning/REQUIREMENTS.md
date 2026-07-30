@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Authentication
 
-- [ ] **AUTH-01**: User can sign up/log in via Google OAuth
-- [ ] **AUTH-02**: User can sign up/log in via phone number + OTP
-- [ ] **AUTH-03**: User's session persists across browser refresh
-- [ ] **AUTH-04**: User can browse the complaint feed without logging in
+- [x] **AUTH-01**: User can sign up/log in via Google OAuth
+- [ ] **AUTH-02**: User can sign up/log in via phone number + OTP — **Deferred** (Phase 2 discussion, 2026-07-28): not scheduled to a phase; Phase 2 ships Google OAuth only
+- [x] **AUTH-03**: User's session persists across browser refresh
+- [x] **AUTH-04**: User can browse the complaint feed without logging in
 
 ### Complaint Submission
 
@@ -96,10 +96,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
+| AUTH-01 | Phase 2 | Complete |
+| AUTH-02 | Unscheduled | Deferred |
+| AUTH-03 | Phase 2 | Complete |
+| AUTH-04 | Phase 2 | Complete |
 | SUBM-01 | Phase 1 | Gaps Found |
 | SUBM-02 | Phase 1 | Gaps Found |
 | SUBM-03 | Phase 1 | Gaps Found |
@@ -126,13 +126,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 **Coverage:**
 
 - v1 requirements: 26 total
-- Mapped to phases: 26 ✓
-- Unmapped: 0 ✓
+- Mapped to phases: 25 ✓
+- Unmapped: 1 (AUTH-02, deferred — see Phase 2 CONTEXT.md D-01)
 
 **Per-phase counts:**
 
 - Phase 1 (Core Capture-to-Feed Skeleton): 7 — SUBM-01, SUBM-02, SUBM-03, SUBM-06, FEED-01, FEED-03, FEED-04
-- Phase 2 (Real Authentication & Write-Gating): 4 — AUTH-01, AUTH-02, AUTH-03, AUTH-04
+- Phase 2 (Real Authentication & Write-Gating): 3 — AUTH-01, AUTH-03, AUTH-04
 - Phase 3 (Location Pipeline — Geocoding & Duplicate Threading): 4 — SUBM-04, DEDUP-01, DEDUP-02, DEDUP-03
 - Phase 4 (AI Verification, Photo Privacy & Abuse Prevention): 6 — SUBM-05, VERIFY-01, VERIFY-02, VERIFY-03, VERIFY-04, VERIFY-05
 - Phase 5 (Social Engagement, Ranking & Moderation): 4 — FEED-02, ENGAGE-01, ENGAGE-02, ENGAGE-03

@@ -1,6 +1,8 @@
+import { headers } from "next/headers";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+import { auth } from "@/lib/auth";
 import { generatePublicId } from "@/lib/ids";
 import { presignPhotoUpload } from "@/lib/r2";
 
@@ -18,7 +20,18 @@ const bodySchema = z.object({
 // server-generated opaque ID and the validated `ext` enum — a client body
 // containing a `key` or `contentType` field is ignored entirely (T-01-02 /
 // T-01-03 in the phase threat model; RESEARCH.md Pitfall 6).
+//
+// This Route Handler is a write-adjacent action (mints a real R2 presigned
+// PUT) independently reachable regardless of the /capture page's Server
+// Component gate, so it calls auth.api.getSession() itself and rejects
+// before any work when no valid session is present — defense-in-depth,
+// never reliance on the route-level gate alone (RESEARCH.md Pitfall 3).
 export async function POST(request: Request) {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+
   const json = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(json);
   if (!parsed.success) {

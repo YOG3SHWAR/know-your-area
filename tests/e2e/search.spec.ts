@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "./auth-fixtures";
 
 async function publishAndGetId(page: import("@playwright/test").Page, categoryName: string) {
   await page.goto("/capture");

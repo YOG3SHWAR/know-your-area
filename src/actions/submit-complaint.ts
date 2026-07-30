@@ -1,8 +1,9 @@
 "use server";
 
 import { sql } from "drizzle-orm";
+import { headers } from "next/headers";
 
-import { getOrCreateDeviceId } from "@/lib/device-id";
+import { auth } from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { complaints } from "@/lib/db/schema";
 import { generatePublicId } from "@/lib/ids";
@@ -26,13 +27,25 @@ function isUniqueViolation(err: unknown): boolean {
   );
 }
 
-// Server Action: zod-validate -> device-id -> opaque-id retry loop ->
-// geometry insert (RESEARCH.md Pattern 2/3/4). The DB's UNIQUE constraint on
-// `public_id` is the actual correctness guarantee; this loop regenerates and
-// retries on conflict, bounded to 5 attempts so a first-ever insert into an
-// empty table never depends on any existing row.
+// Server Action: zod-validate -> session identity -> opaque-id retry loop ->
+// geometry insert (RESEARCH.md Pattern 2/3/4/5). The DB's UNIQUE constraint
+// on `public_id` is the actual correctness guarantee; this loop regenerates
+// and retries on conflict, bounded to 5 attempts so a first-ever insert into
+// an empty table never depends on any existing row.
+//
+// This Server Action is independently reachable (replayed request, direct
+// devtools invocation) regardless of the /capture page's Server Component
+// gate, so it calls auth.api.getSession() itself and rejects before any
+// work when no valid session is present — defense-in-depth, never reliance
+// on the route-level gate alone (RESEARCH.md Pitfall 3).
 export async function submitComplaint(input: SubmissionInput): Promise<{ publicId: string }> {
   const parsed = submissionSchema.parse(input);
+
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) {
+    throw new Error("You must be signed in to submit a report.");
+  }
+  const submitterId = session.user.id;
 
   // CR-01: `submissionSchema.photoKey` only checks the string *shape* via
   // regex — it never proves the object was actually uploaded to R2. Without
@@ -40,12 +53,11 @@ export async function submitComplaint(input: SubmissionInput): Promise<{ publicI
   // CameraCapture/PermissionGate entirely) could forge a plausible-looking
   // key and publish a "photo-verified" complaint with no real photo behind
   // it. Reject up front with a clear validation error rather than letting a
-  // fake row reach the DB.
+  // fake row reach the DB. Runs after the session check so an unauthenticated
+  // caller can never trigger this real R2 HeadObject call.
   if (!(await photoExists(parsed.photoKey))) {
     throw new Error("Photo not found — please retake and upload the photo before submitting.");
   }
-
-  const submitterId = await getOrCreateDeviceId();
 
   // Location is always read live from the browser's Geolocation API at
   // submit time (never image EXIF) and inserted as a real SRID-4326 point

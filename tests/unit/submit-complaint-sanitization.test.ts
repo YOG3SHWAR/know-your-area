@@ -1,13 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Mirrors tests/unit/feed-route-logging.test.ts's mock-then-dynamic-import
-// shape: submit-complaint.ts imports @/lib/r2, @/lib/device-id, and
+// shape: submit-complaint.ts imports @/lib/r2, @/lib/auth, next/headers, and
 // @/lib/db/client, each of which would otherwise require live env vars
-// (R2 credentials, DATABASE_URL) to instantiate. Mock all three so importing
-// the Server Action never touches that chain.
+// (R2 credentials, DATABASE_URL, Better Auth/Google env vars) to
+// instantiate. Mock all of them so importing the Server Action never
+// touches that chain.
 const RAW_MARKER = "RAW_DRIVER_LEAK: connection terminated unexpectedly";
 const SANITIZED_PUBLISH_MESSAGE =
   "Couldn't publish your report. Check your connection and try again.";
+const NO_SESSION_MESSAGE = "You must be signed in to submit a report.";
 
 const validPayload = {
   category: "pothole" as const,
@@ -21,9 +23,11 @@ vi.mock("@/lib/r2", () => ({
   photoExists: vi.fn().mockResolvedValue(true),
 }));
 
-vi.mock("@/lib/device-id", () => ({
-  getOrCreateDeviceId: vi.fn().mockResolvedValue("test-device"),
+const getSessionMock = vi.fn().mockResolvedValue({ user: { id: "test-user" } });
+vi.mock("@/lib/auth", () => ({
+  auth: { api: { getSession: getSessionMock } },
 }));
+vi.mock("next/headers", () => ({ headers: vi.fn().mockResolvedValue(new Headers()) }));
 
 vi.mock("@/lib/db/client", () => {
   // Not a unique-violation error (no .code), so the retry loop must not
@@ -71,5 +75,17 @@ describe("submitComplaint sanitization (G-01-CR-01)", () => {
       .map((call: unknown[]) => call.map((arg: unknown) => String(arg)).join(" "))
       .join(" ");
     expect(loggedArgs).toContain(RAW_MARKER);
+  });
+
+  it("rejects with the no-session message and never calls console.error (pre-DB-insert throw)", async () => {
+    getSessionMock.mockResolvedValueOnce(null);
+    const { submitComplaint } = await import("@/actions/submit-complaint");
+
+    await expect(submitComplaint(validPayload)).rejects.toThrow(NO_SESSION_MESSAGE);
+
+    // Unlike the sanitized-DB-failure path above, this rejection happens
+    // before the insert loop is ever reached, so sanitizeError/console.error
+    // is never invoked for it.
+    expect(consoleErrorSpy).not.toHaveBeenCalled();
   });
 });

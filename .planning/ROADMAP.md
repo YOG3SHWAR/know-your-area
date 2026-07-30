@@ -14,7 +14,7 @@ Know Your Area is built as a sequence of vertical MVP slices — each phase ship
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Core Capture-to-Feed Skeleton** - Live camera + GPS capture → instant publish → nearby feed → open by ID/permalink (stub auth) (completed 2026-07-28)
-- [ ] **Phase 2: Real Authentication & Write-Gating** - Google OAuth + phone OTP normalized to one identity; anonymous browse, gated writes
+- [x] **Phase 2: Real Authentication & Write-Gating** - Google OAuth + phone OTP normalized to one identity; anonymous browse, gated writes (completed 2026-07-30)
 - [ ] **Phase 3: Location Pipeline — Geocoding & Duplicate Threading** - Async pipeline: reverse-geocode to locality/ward/pincode + thread same-issue reports onto the original
 - [ ] **Phase 4: AI Verification, Photo Privacy & Abuse Prevention** - Auto face/plate blur + AI pre-publish gate (category/location/genuineness) + submission rate-limiting
 - [ ] **Phase 5: Social Engagement, Ranking & Moderation** - Upvote, comment, report affordance + moderation queue, and a social-style ranked feed
@@ -84,24 +84,48 @@ Notes:
 
 ### Phase 2: Real Authentication & Write-Gating
 
-**Goal**: Replace the stub identity with real accounts (Google OAuth + phone OTP) normalized to one internal `user_id`, gate all write actions behind login, and keep feed browsing fully anonymous.
+**Goal**: Replace the stub identity with a real Google OAuth account normalized to one internal `user_id`, gate all write actions behind login, and keep feed browsing fully anonymous. Phone OTP (AUTH-02) is deferred out of this phase (Phase 2 discussion, 2026-07-28) — see `02-CONTEXT.md` D-01.
 **Mode:** mvp
 **Depends on**: Phase 1
-**Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04
+**Requirements**: AUTH-01, AUTH-03, AUTH-04 (AUTH-02 deferred, unscheduled)
 **Success Criteria** (what must be TRUE):
 
   1. A user can sign up / log in with Google OAuth.
-  2. A user can sign up / log in with a phone number + OTP.
-  3. A logged-in user stays logged in across a browser refresh/return.
-  4. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account.
+  2. A logged-in user stays logged in across a browser refresh/return.
+  3. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account (login gate fires on entry to `/capture`, before camera/GPS permission is requested).
 
-**Plans**: TBD
+**Plans**: 3/3 plans executed
+
+**Wave 1**
+
+- [x] 02-01-PLAN.md — Better Auth foundation: legitimacy gate, install, Google-only config, push user/session/account/verification schema, adapter round-trip (A1) (Wave 1)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 02-02-PLAN.md — Tracer write-gate slice: `/capture` Server Component gate → `/login` (Google sign-in) + CaptureClient move + session-seeding e2e harness (AUTH-01, AUTH-03) (Wave 2)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 02-03-PLAN.md — Identity swap + defense-in-depth: submitComplaint/`upload-url` session gates, delete device-id, anonymous-browse assertions (AUTH-01, AUTH-04) (Wave 3)
+
 **UI hint**: yes
 
 Notes:
 
 - **Spike (blocking for Phase 4): AI provider cost benchmarking.** Measure actual per-image token cost across candidate vision models (e.g., Gemini Flash-Lite vs. GPT-4o vs. a self-hosted open model) using real phone-camera-resolution photos, not demo images (Pitfall 5). Run it here so results are ready before provider selection in Phase 4.
-- Normalize both auth providers into one identity shape at the edge so downstream services never branch on "OAuth vs. OTP" (Architecture Pattern 3).
+- Phone OTP (AUTH-02) is deferred, not built even as scaffold — no Credentials provider, no phone schema field, no SMS vendor integration. Keep the Auth.js setup and `submitterId` schema shape provider-agnostic so OTP can be added later without a data migration.
+- No device-id → real-account data migration needed — no real users exist yet on the current deployment.
+
+### Phase 02.1: Navigation & App Shell (INSERTED)
+
+**Goal:** Wire Phase 1's capture/feed and Phase 2's auth into one discoverable app — add a persistent header with a "Report a problem" CTA (routes to /capture) and account/login state, so a real visitor landing on `/` can actually find and use the flows that already exist.
+**Requirements**: TBD
+**Depends on:** Phase 2
+**Plans:** 0 plans
+
+Plans:
+
+- [ ] TBD (run /gsd-plan-phase 02.1 to break down)
 
 ### Phase 3: Location Pipeline — Geocoding & Duplicate Threading
 
@@ -198,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Capture-to-Feed Skeleton | 12/12 | Complete    | 2026-07-28 |
-| 2. Real Authentication & Write-Gating | 0/TBD | Not started | - |
+| 2. Real Authentication & Write-Gating | 3/3 | Complete    | 2026-07-30 |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |
 | 5. Social Engagement, Ranking & Moderation | 0/TBD | Not started | - |

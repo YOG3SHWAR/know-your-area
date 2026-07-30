@@ -2,18 +2,18 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-current_phase: 2
-current_phase_name: Real Authentication & Write-Gating
-status: "Phase 01 shipped — PR #5"
-stopped_at: Completed 01-12-PLAN.md - shared sanitizeError utility (G-01-CR-01) + permalink photo-404 fallback (G-01-WR-08) closed; all 12 plans in phase 01 now complete, phase ready for re-verification
-last_updated: "2026-07-28T08:32:14.704Z"
-last_activity: 2026-07-28
+current_phase: 3
+current_phase_name: Location Pipeline — Geocoding & Duplicate Threading
+status: "Phase 02 shipped — PR #6"
+stopped_at: Completed 02-03-PLAN.md
+last_updated: "2026-07-30T15:28:28.539Z"
+last_activity: 2026-07-30
 progress:
-  total_phases: 1
-  completed_phases: 1
-  total_plans: 12
-  completed_plans: 12
-last_activity_desc: Phase 01 complete, transitioned to Phase 2
+  total_phases: 3
+  completed_phases: 2
+  total_plans: 15
+  completed_plans: 15
+last_activity_desc: Phase 02 complete, transitioned to Phase 3
 ---
 
 # Project State
@@ -23,14 +23,14 @@ last_activity_desc: Phase 01 complete, transitioned to Phase 2
 See: .planning/PROJECT.md (updated 2026-07-22)
 
 **Core value:** Make civic problem reporting dead simple and visible — so people who don't know (or don't trust) official government reporting channels can still report and see local issues, with photo-verified, deduplicated, publicly visible complaints.
-**Current focus:** Phase 01 — core-capture-to-feed-skeleton
+**Current focus:** Phase 02 — real-authentication-write-gating
 
 ## Current Position
 
-Phase: 2 — Real Authentication & Write-Gating
+Phase: 3 — Location Pipeline — Geocoding & Duplicate Threading
 Plan: Not started
-Status: Phase 01 shipped — PR #5
-Last activity: 2026-07-28
+Status: Phase 02 shipped — PR #6
+Last activity: 2026-07-30
 
 Progress: [██████████] 100%
 
@@ -38,7 +38,7 @@ Progress: [██████████] 100%
 
 **Velocity:**
 
-- Total plans completed: 12
+- Total plans completed: 15
 - Average duration: —
 - Total execution time: 0 hours
 
@@ -47,6 +47,7 @@ Progress: [██████████] 100%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01 | 12 | - | - |
+| 02 | 3 | - | - |
 
 **Recent Trend:**
 
@@ -70,6 +71,9 @@ Progress: [██████████] 100%
 | Phase 01 P10 | 5min | 2 tasks | 3 files |
 | Phase 01 P11 | 2min | 2 tasks | 3 files |
 | Phase 01 P12 | 6min | 3 tasks | 8 files |
+| Phase 02 P01 | 35min | 3 tasks | 8 files |
+| Phase 02 P02 | 30min | 2 tasks | 6 files |
+| Phase 02 P03 | 35min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -105,6 +109,15 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: 01-11: R2 CORS production-origin change (user_setup) and the real-device human-check remain open post-plan — deferred to end-of-phase UAT per workflow.human_verify_mode: end-of-phase
 - [Phase ?]: [Phase ?]: 01-12: Promoted sanitizeError to the single primary error-sanitization mechanism, retrofitting the four prior ad-hoc call sites (camera-start, geolocation, upload, feed route) onto it — no fifth parallel implementation
 - [Phase ?]: [Phase ?]: 01-12: ComplaintPhoto client component copies FeedCard's CATEGORY_ICONS/CATEGORY_TILE_STYLES verbatim rather than shared-extracting, keeping the permalink photo-404 fix a point-fix that never risks FeedCard's already-working fallback
+- [Phase ?]: Google is the only social provider (D-01) — no Credentials provider, no phone/otp field
+- [Phase ?]: Kept Better Auth default singular table names (no usePlural) per RESEARCH.md Assumption A3
+- [Phase ?]: drizzle-kit CLI invocations require DOTENV_CONFIG_PATH=.env.local since drizzle-kit's bundled dotenv only auto-loads .env by default
+- [Phase ?]: drizzle-kit push recurringly drops complaints.location SRID to 0 on every push (not just first) — must re-apply the documented ALTER fix after every push
+- [Phase ?]: 02-02: Used Better Auth's official testUtils plugin (ctx.test.login) for e2e session seeding instead of internalAdapter.createSession() + hand-signed cookie
+- [Phase ?]: 02-02: Session-seeding uses a separate test-only betterAuth() instance in auth-fixtures.ts, never imports production src/lib/auth.ts
+- [Phase ?]: 02-02: auth-fixtures.ts avoids the @/* alias entirely (relative imports + duplicated buildClientOptions) and loads .env.local itself via process.loadEnvFile() since the Playwright test process is separate from the Next dev server
+- [Phase ?]: 02-03: submitComplaint's no-session rejection is a plain throw (not routed through sanitizeError) since the message is developer-authored and inherently safe
+- [Phase ?]: 02-03: Defense-in-depth session check pattern established — submitComplaint and POST /api/upload-url each independently call auth.api.getSession() and reject before any work, never relying solely on the /capture page gate
 
 ### Pending Todos
 
@@ -118,6 +131,10 @@ Flagged spikes (must be run within their phase, not silently assumed):
 - Phase 3: Nominatim India geocoding accuracy across dense/medium/rural coordinates.
 - Phase 3: 200m dedup radius false-positive rate in dense metros (30-40% risk); DBSCAN / photo-similarity as fallback.
 
+### Roadmap Evolution
+
+- Phase 02.1 edited: edited fields: title, goal (shortened title, added real goal statement)
+
 ## Deferred Items
 
 Items acknowledged and carried forward from previous milestone close:
@@ -128,6 +145,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-28T07:43:35.336Z
-Stopped at: Completed 01-12-PLAN.md - shared sanitizeError utility (G-01-CR-01) + permalink photo-404 fallback (G-01-WR-08) closed; all 12 plans in phase 01 now complete, phase ready for re-verification
+Last session: 2026-07-30T04:02:59.525Z
+Stopped at: Completed 02-03-PLAN.md
 Resume file: None

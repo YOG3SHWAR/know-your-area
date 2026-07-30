@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { expect, test } from "./fixtures";
+import { expect, test } from "./auth-fixtures";
 
 // Bengaluru fixture center — matches tests/e2e/fixtures.ts's default so the
 // "viewer" position below is unambiguous.
@@ -89,6 +89,8 @@ test("feed page: nearest complaint ranks above a farther one, sorted by proximit
   await page.context().setGeolocation(VIEWER);
   await page.goto("/");
   await expect(page).toHaveURL(/[?&]lat=/, { timeout: 15_000 });
+  // AUTH-04: the public feed never redirects to /login — browse stays open.
+  await expect(page).not.toHaveURL(/\/login/);
   // UI smoke check: the feed actually renders distance-labeled cards.
   await expect(page.getByText(/ away$/).first()).toBeVisible();
 
