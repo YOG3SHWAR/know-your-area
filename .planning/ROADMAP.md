@@ -94,7 +94,7 @@ Notes:
   2. A logged-in user stays logged in across a browser refresh/return.
   3. Anyone can browse the complaint feed without logging in, but submitting a complaint requires an account (login gate fires on entry to `/capture`, before camera/GPS permission is requested).
 
-**Plans**: 2/3 plans executed
+**Plans**: 3/3 plans executed
 
 **Wave 1**
 
@@ -106,7 +106,7 @@ Notes:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-03-PLAN.md — Identity swap + defense-in-depth: submitComplaint/`upload-url` session gates, delete device-id, anonymous-browse assertions (AUTH-01, AUTH-04) (Wave 3)
+- [x] 02-03-PLAN.md — Identity swap + defense-in-depth: submitComplaint/`upload-url` session gates, delete device-id, anonymous-browse assertions (AUTH-01, AUTH-04) (Wave 3)
 
 **UI hint**: yes
 
@@ -211,7 +211,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Core Capture-to-Feed Skeleton | 12/12 | Complete    | 2026-07-28 |
-| 2. Real Authentication & Write-Gating | 2/3 | In Progress|  |
+| 2. Real Authentication & Write-Gating | 3/3 | In Progress|  |
 | 3. Location Pipeline — Geocoding & Duplicate Threading | 0/TBD | Not started | - |
 | 4. AI Verification, Photo Privacy & Abuse Prevention | 0/TBD | Not started | - |
 | 5. Social Engagement, Ranking & Moderation | 0/TBD | Not started | - |
