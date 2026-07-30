@@ -10,6 +10,14 @@ import { requireEnv } from "@/lib/env";
 // even as an unwired placeholder. SMS sign-in is a formally deferred future
 // phase.
 export const auth = betterAuth({
+  // Explicit requireEnv fail-fast, matching the Google credentials below.
+  // Better Auth's own internal fallback only hard-fails on a missing secret
+  // when NODE_ENV==="production" — outside that it silently falls back to a
+  // well-known public default string, which would let session cookies be
+  // forged. Still reads the same BETTER_AUTH_SECRET env var
+  // tests/e2e/auth-fixtures.ts's test-only auth instance relies on via its
+  // own (unexplicit) fallback, so seeded e2e sessions remain valid.
+  secret: requireEnv("BETTER_AUTH_SECRET"),
   database: drizzleAdapter(db, { provider: "pg" }),
   socialProviders: {
     google: {

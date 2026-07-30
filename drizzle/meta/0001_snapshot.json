@@ -156,7 +156,7 @@
         },
         "location": {
           "name": "location",
-          "type": "geometry(point)",
+          "type": "geometry(point, 4326)",
           "primaryKey": false,
           "notNull": true
         },

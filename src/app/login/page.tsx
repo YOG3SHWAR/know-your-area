@@ -44,9 +44,17 @@ function LoginPageInner() {
     // Set the disabled/loading state BEFORE the async signIn call — this
     // (not a callback after the promise resolves) is what prevents a
     // double-invoke of authClient.signIn.social on a slow network
-    // (UI-SPEC loading state).
+    // (UI-SPEC loading state). On success the browser navigates away to
+    // Google before this promise ever settles, so resetting `redirecting`
+    // only matters on the failure path (network error, or better-auth's
+    // {error} result) — without it the button stays stuck disabled forever.
     setRedirecting(true);
-    void authClient.signIn.social({ provider: "google", callbackURL: callbackUrl });
+    authClient.signIn.social({ provider: "google", callbackURL: callbackUrl }).then(
+      ({ error }) => {
+        if (error) setRedirecting(false);
+      },
+      () => setRedirecting(false),
+    );
   }
 
   return (
