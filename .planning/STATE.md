@@ -5,15 +5,15 @@ milestone_name: milestone
 current_phase: 02
 current_phase_name: real-authentication-write-gating
 status: executing
-stopped_at: Completed 02-01-PLAN.md
-last_updated: "2026-07-29T10:12:48.266Z"
+stopped_at: Completed 02-02-PLAN.md
+last_updated: "2026-07-30T03:52:01.045Z"
 last_activity: 2026-07-29
 last_activity_desc: Phase 02 execution started
 progress:
   total_phases: 2
   completed_phases: 1
   total_plans: 15
-  completed_plans: 13
+  completed_plans: 14
 ---
 
 # Project State
@@ -28,11 +28,11 @@ See: .planning/PROJECT.md (updated 2026-07-22)
 ## Current Position
 
 Phase: 02 (real-authentication-write-gating) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-07-29 — Phase 02 execution started
 
-Progress: [█████████░] 87%
+Progress: [█████████░] 93%
 
 ## Performance Metrics
 
@@ -71,6 +71,7 @@ Progress: [█████████░] 87%
 | Phase 01 P11 | 2min | 2 tasks | 3 files |
 | Phase 01 P12 | 6min | 3 tasks | 8 files |
 | Phase 02 P01 | 35min | 3 tasks | 8 files |
+| Phase 02 P02 | 30min | 2 tasks | 6 files |
 
 ## Accumulated Context
 
@@ -110,6 +111,9 @@ Roadmap-shaping decisions affecting current work:
 - [Phase ?]: Kept Better Auth default singular table names (no usePlural) per RESEARCH.md Assumption A3
 - [Phase ?]: drizzle-kit CLI invocations require DOTENV_CONFIG_PATH=.env.local since drizzle-kit's bundled dotenv only auto-loads .env by default
 - [Phase ?]: drizzle-kit push recurringly drops complaints.location SRID to 0 on every push (not just first) — must re-apply the documented ALTER fix after every push
+- [Phase ?]: 02-02: Used Better Auth's official testUtils plugin (ctx.test.login) for e2e session seeding instead of internalAdapter.createSession() + hand-signed cookie
+- [Phase ?]: 02-02: Session-seeding uses a separate test-only betterAuth() instance in auth-fixtures.ts, never imports production src/lib/auth.ts
+- [Phase ?]: 02-02: auth-fixtures.ts avoids the @/* alias entirely (relative imports + duplicated buildClientOptions) and loads .env.local itself via process.loadEnvFile() since the Playwright test process is separate from the Next dev server
 
 ### Pending Todos
 
@@ -133,6 +137,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-07-29T10:12:48.259Z
-Stopped at: Completed 02-01-PLAN.md
+Last session: 2026-07-30T03:52:01.038Z
+Stopped at: Completed 02-02-PLAN.md
 Resume file: None

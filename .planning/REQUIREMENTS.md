@@ -11,7 +11,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [x] **AUTH-01**: User can sign up/log in via Google OAuth
 - [ ] **AUTH-02**: User can sign up/log in via phone number + OTP — **Deferred** (Phase 2 discussion, 2026-07-28): not scheduled to a phase; Phase 2 ships Google OAuth only
-- [ ] **AUTH-03**: User's session persists across browser refresh
+- [x] **AUTH-03**: User's session persists across browser refresh
 - [ ] **AUTH-04**: User can browse the complaint feed without logging in
 
 ### Complaint Submission
@@ -98,7 +98,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | AUTH-01 | Phase 2 | Complete |
 | AUTH-02 | Unscheduled | Deferred |
-| AUTH-03 | Phase 2 | Pending |
+| AUTH-03 | Phase 2 | Complete |
 | AUTH-04 | Phase 2 | Pending |
 | SUBM-01 | Phase 1 | Gaps Found |
 | SUBM-02 | Phase 1 | Gaps Found |
