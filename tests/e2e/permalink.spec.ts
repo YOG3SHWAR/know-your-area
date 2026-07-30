@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "./auth-fixtures";
 
 // FEED-04: each complaint has a shareable, crawlable permalink at /c/{id}.
 // Publishes via the real capture flow, follows the feed card's link (the

@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test";
 
-import { expect, test } from "./fixtures";
+import { expect, test } from "./auth-fixtures";
 
 // Bengaluru fixture center — matches tests/e2e/fixtures.ts's default so the
 // "viewer" position below is unambiguous.
