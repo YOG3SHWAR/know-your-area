@@ -1,4 +1,4 @@
-import { expect, test } from "./fixtures";
+import { expect, test } from "./auth-fixtures";
 
 // SUBM-01: camera-only capture (no gallery/file-picker path exists).
 // SUBM-03: live GPS is read from the browser at submission time, not EXIF.
